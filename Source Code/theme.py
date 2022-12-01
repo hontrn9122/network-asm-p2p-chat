@@ -1,6 +1,6 @@
 #define font and colors
-my_font = ('haveltica', 14)
-my_font_small = ('heveltica', 10)
+my_font = ('helvetica', 14)
+my_font_small = ('helvetica', 10)
 darkgreen = "#2A4731"
 lightgreen = "#6F8C64"
 yellow = "#FDD584"

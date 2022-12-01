@@ -8,11 +8,13 @@ onlinelist = ['huy', 'hoang']
 offlinelist = ['loc', 'khanh', 'bao']
 
 class frlist_window:
-    def __init__(self):
+    def __init__(self, onlinelist, offlinelist):
+        self.updatelist(onlinelist, offlinelist)
+
         #define FRIEND LIST window
         self.flist_page = tkinter.Tk()
         self.flist_page.title("Simple P2P Chat application - Friends List")
-        self.flist_page.geometry("700x900")
+        self.flist_page.geometry("700x800")
         self.flist_page.resizable(0,0)
 
         #set window colors
@@ -45,10 +47,12 @@ class frlist_window:
         self.mail.grid(row = 1 , column=1, columnspan= 2, padx = 5, pady = 5)
 
         #Label Frame Layout
-        self.friend_list_label = tkinter.Label(self.label_frame, text = "Friend List", font=('haveltica', 18), fg=white, bg=darkgreen, width=38, anchor = "nw")
-        self.addfr_button = tkinter.Button(self.label_frame, text = "Add friend", borderwidth = 0, width = 8, font = my_font_small, bg = yellow, fg = black)
+        self.friend_list_label = tkinter.Label(self.label_frame, text = "Friend List", font=('haveltica', 18), fg=white, bg=darkgreen, width= 30, anchor = "nw")
+        self.frrequest_button = tkinter.Button(self.label_frame, text = "Friend request", borderwidth = 0, width = 10, font = my_font_small, bg = yellow, fg = black)
+        self.addfr_button = tkinter.Button(self.label_frame, text = "Add friend", borderwidth = 0, width = 10, font = my_font_small, bg = yellow, fg = black)
         self.friend_list_label.grid(row = 0 , column=0, padx = 5, pady = 5)
-        self.addfr_button.grid(row = 0 , column=1, padx = 5, pady = 5)
+        self.frrequest_button.grid(row = 0 , column=1, padx = 5, pady = 5)
+        self.addfr_button.grid(row = 0 , column=2, padx = 5, pady = 5)
 
         #List Frame Layout
         self.my_scrollbar = tkinter.Scrollbar(self.list_frame, orient=VERTICAL)
@@ -62,16 +66,36 @@ class frlist_window:
         self.search_button = tkinter.Button(self.search_frame, text="Search", borderwidth=0, width=10, font=my_font, bg=yellow, fg = black)
         self.input_entry.grid(row=0, column=0, padx=5, pady=5)
         self.search_button.grid(row=0, column=1, padx=5, pady=5)
+        self.input_entry.bind("<KeyRelease>", self.search_check)
+        self.search_button.bind("<Button-1>", self.search_check)
 
         #Button Frame Layout
         self.unfriend_button = tkinter.Button(self.button_frame, text = "Unfriend", width=27, borderwidth = 0, font = my_font, bg = yellow, fg = black)
         self.chat_button = tkinter.Button(self.button_frame, text = "Start chatting", width = 27, borderwidth = 0, font = my_font, bg = yellow, fg = black)
         self.unfriend_button.grid(row=0, column=0,padx=5, pady=5)
         self.chat_button.grid(row=0, column=1, padx=5, pady=5)
-        self.updatelist()
+        self.update_displaylist(self.onlinelist, self.offlinelist)
 
+    def updatelist(self, onlinelist, offlinelist):
+        self.onlinelist = onlinelist
+        self.offlinelist = offlinelist
 
-    def updatelist(self):
+    def search_check(self, event):
+        typed = self.input_entry.get()
+        if type == '':
+            self.update_displaylist(self.onlinelist, self.offlinelist)
+        else:
+            online_tmplist = []
+            offline_tmplist = []
+            for user in self.onlinelist:
+                if typed.lower() in user.lower():
+                    online_tmplist.append(user)
+            for user in self.offlinelist:
+                if typed.lower() in user.lower():
+                    offline_tmplist.append(user)
+            self.update_displaylist(online_tmplist, offline_tmplist)
+
+    def update_displaylist(self, onlinelist, offlinelist):
         self.my_listbox.delete(0, END)
         for user in onlinelist:
             self.my_listbox.insert(0, user)
@@ -84,6 +108,6 @@ class frlist_window:
         #Run the self.flist_page window's mainloop()
         self.flist_page.mainloop()
 
-friendlist_window = frlist_window()
+friendlist_window = frlist_window(onlinelist, offlinelist)
 friendlist_window.render()
 
