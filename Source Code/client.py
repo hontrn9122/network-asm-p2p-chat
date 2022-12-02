@@ -66,19 +66,20 @@ class login_window:
         else:
             self.login()
 
-    def pop_up(self, title, message):
-        messagebox.showinfo(title, message)
-
     def login(self):
         #global myID, password, friend_list, server_sock, login_win, friendlist_win
         myID = self.uid_entry.get()
         password = self.pw_entry.get()
         server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_sock.connect(ACC_SERVER)
-        server_sock.send(f"login {myID} {password}".encode(ENCODER))
+        try:
+            server_sock.connect(ACC_SERVER)
+        except:
+            messagebox.showerror("Connect failed!", "Cannot connect to the server!")
+            return
+        server_sock.send(f"LOGIN {myID}_{password}".encode(ENCODER))
         response = server_sock.recv(BYTESIZE).decode(ENCODER)
         if (response == "FAIL"):
-            self.pop_up("Login failed!", "Incorrect User ID or Password!")
+            messagebox.showwarning("Login failed!", "Incorrect User ID or Password!")
         else:
             email = server_sock.recv(BYTESIZE).decode(ENCODER)
             friend_name = server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
@@ -111,6 +112,7 @@ class frlist_window:
         self.friend_list = friend_list
         self.server_sock = server_sock
         self.conversation_list = dict
+        self.friend_request = []
         
         #Separate friend into online and offline list
         self.onlinelist = []
@@ -158,8 +160,8 @@ class frlist_window:
 
         #Label Frame Layout
         self.friend_list_label = tkinter.Label(self.label_frame, text = "Friend List", font=('haveltica', 18), fg=white, bg=darkgreen, width= 30, anchor = "nw")
-        self.frrequest_button = tkinter.Button(self.label_frame, text = "Friend request", borderwidth = 0, width = 10, font = my_font_small, bg = yellow, fg = black)
-        self.addfr_button = tkinter.Button(self.label_frame, text = "Add friend", borderwidth = 0, width = 10, font = my_font_small, bg = yellow, fg = black)
+        self.frrequest_button = tkinter.Button(self.label_frame, text = "Friend request", borderwidth = 0, width = 10, font = my_font_small, bg = yellow, fg = black, command = lambda: self.show_friend_request())
+        self.addfr_button = tkinter.Button(self.label_frame, text = "Add friend", borderwidth = 0, width = 10, font = my_font_small, bg = yellow, fg = black, command = lambda: self.add_friend())
         self.friend_list_label.grid(row = 0 , column=0, padx = 5, pady = 5)
         self.frrequest_button.grid(row = 0 , column=1, padx = 5, pady = 5)
         self.addfr_button.grid(row = 0 , column=2, padx = 5, pady = 5)
@@ -235,6 +237,21 @@ class frlist_window:
                 server_mess = self.server_sock.recv(BYTESIZE).decode(ENCODER)
                 if (server_mess == "FRIEND_LIST_UPDATE"):
                     self.frlist_update()
+                elif (server_mess == "FRIEND_REQUEST"):
+                    user_ID = self.server_sock.recv(BYTESIZE).decode(ENCODER)
+                    if user_ID not in self.friend_request:
+                        self.friend_request.append(user_ID)
+                elif (server_mess == "REQUEST_TIMEOUT"):
+                    user_ID = self.server_sock.recv(BYTESIZE).decode(ENCODER)
+                    messagebox.showinfo("Friend request timeout!", f"Friend request to {user_ID} has timed out!")
+                elif (server_mess == "REQUEST_DENIED"):
+                    user_ID = self.server_sock.recv(BYTESIZE).decode(ENCODER)
+                    messagebox.showinfo("Friend request denied!", f"Friend request to {user_ID} has been denied!")
+                elif (server_mess == "DEL_TIMEOUT_REQUEST"):
+                    user_ID = self.server_sock.recv(BYTESIZE).decode(ENCODER)
+                    if user_ID in self.friend_request:
+                        self.friend_request.remove(user_ID)
+
             except:
                 showerror(title="Server connection lost!", message=f"Cannot connect to server!")
                 self.server_sock.close()
@@ -279,12 +296,9 @@ class frlist_window:
                 return userid
         return "NULL"
 
-    def find_user(self):
-        pass
-
-    def request_friend(self):
-        pass
-
+    def add_friend(self):
+        addFriend_window()
+    
     def unfriend(self):
         pass
     
@@ -451,13 +465,61 @@ class conversation_window:
     def bring_to_front(self):
         self.conver_page.lift()
 
+class addFriend_window:
+    def __init__(self, root: Tk, server_sock: socket):
+        self.server_sock = server_sock
+        
+        #define ADD FRIEND window
+        self.addfriend_popup = tkinter.Toplevel(root)
+        self.addfriend_popup.title("Add new friend")
+        self.addfriend_popup.geometry("300x160")
+        self.addfriend_popup.resizable(0,0)
+
+        #set window colors
+        self.addfriend_popup.config(bg=darkgreen)
+
+        #Define GUI Layout
+        #Create Frames
+        self.input_frame = tkinter.Frame(self.addfriend_popup, bg=white)
+        self.output_frame = tkinter.Frame(self.addfriend_popup, bg=darkgreen)
+
+        self.input_frame.pack(pady = 15)
+        self.output_frame.pack()
+
+        #Output Frame Layout
+        self.result = tkinter.Label(self.output_frame, text = "<result>", font=my_font, fg=white, bg=darkgreen, width= 10)
+        self.add_button = tkinter.Button(self.output_frame, text="Send friend request", borderwidth=0, width=15, font=my_font_small, bg=yellow, fg = black, state=DISABLED, command=lambda: self.request_friend())
+        self.result.grid(row = 0 , column=0, padx = 5, pady = 5)
+        self.add_button.grid(row = 1 , column=0, padx = 5, pady = 5)
+
+
+        #Input Frame Layout
+        self.input_entry = tkinter.Entry(self.input_frame, width=15, borderwidth=0, font=my_font)
+        self.search_button = tkinter.Button(self.input_frame, text="Search", borderwidth=0, width=5, font=my_font, bg=yellow, fg = black, command=lambda: self.find_user())
+        self.input_entry.grid(row=0, column=0, padx=5, pady=5)
+        self.search_button.grid(row=0, column=1, padx=5, pady=5)
+
+    def find_user(self):
+        user_id = self.input_entry.get()
+        self.server_sock.send(f"FIND {user_id}".encode(ENCODER))
+        response = self.server_sock.recv(BYTESIZE).decode(ENCODER)
+        if response == "FOUND_ONLINE":
+            self.result.config(text = f"{user_id} is online")
+            self.add_button.config(state= NORMAL)
+        elif response == "FOUND_OFFLINE":
+            self.result.config(text = f"{user_id} is offline")
+        else:
+            self.result.config(text = "Not found!")
+
+    def request_friend(self):
+        self.add_button.config(state= DISABLED)
+        user_id = self.result.cget('text')
+        self.server_sock.send(f"REQUEST {user_id}".encode(ENCODER))
+
 class register_window:
     pass
 
 class forgotPassword_window:
-    pass
-
-class addFriend_window:
     pass
 
 class friendRequest_window:
