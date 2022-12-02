@@ -56,7 +56,7 @@ class frlist_window:
 
         #List Frame Layout
         self.my_scrollbar = tkinter.Scrollbar(self.list_frame, orient=VERTICAL)
-        self.my_listbox = tkinter.Listbox(self.list_frame, height=20, width=55, borderwidth=0, bg=white, fg=darkgreen, font=my_font, yscrollcommand=self.my_scrollbar.set)
+        self.my_listbox = tkinter.Listbox(self.list_frame, height=20, width=55, borderwidth=0, bg=white, fg=darkgreen, font=('helvetica', 14, 'italic', 'underline'), yscrollcommand=self.my_scrollbar.set)
         self.my_scrollbar.config(command=self.my_listbox.yview)
         self.my_listbox.grid(row=0, column=0)
         self.my_scrollbar.grid(row=0, column=1, sticky="NS")

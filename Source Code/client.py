@@ -1,8 +1,10 @@
 # Client Chat App
-import tkinter, socket, threading
+import tkinter, socket, threading, os
 from tkinter import *
 from tkinter import messagebox
 from theme import *
+from tkinter.messagebox import askyesno, showerror
+from tkinter import filedialog
 
 # Defining constant
 S_HOSTNAME = "localhost"
@@ -13,17 +15,16 @@ MY_PORT = 50001
 LISTEN_ADDRESS = ('localhost', MY_PORT)
 ENCODER = 'utf-8'
 BYTESIZE = 1024
-
 # Defining global variable
-global myID
-global password
-friend_list: dict
-global server_sock
-global listen_sock
-sock_list: dict
-global login_win
-global friendlist_win
-conversation_window: dict
+#global myID
+#global password
+#friend_list: dict
+#global server_sock
+#global listen_sock
+#sock_list: dict
+#global login_win
+#global friendlist_win
+#conver_win_list: dict
 
 class login_window:
     def __init__(self):
@@ -49,8 +50,8 @@ class login_window:
         self.pw_label = tkinter.Label(self.login_frame, text="Password:", font=my_font, fg=yellow, bg=darkgreen)
         self.pw_entry = tkinter.Entry(self.login_frame, borderwidth=0, font=my_font, show = '*')
         self.signin_button = tkinter.Button(self.login_frame, text="Sign in", font=my_font, fg = black, bg=yellow, borderwidth=0, width=10, height=3, command = lambda: self.check_fields())
-        self.register_button = tkinter.Button(self.login_frame, text="Register", font=my_font_small, fg = white, bg=lightgreen, borderwidth=0, width=8)
-        self.forgotpw_button = tkinter.Button(self.login_frame, text="Forgot password", font=my_font_small, fg = white, bg=lightgreen, borderwidth=0, width= 16)
+        self.register_button = tkinter.Button(self.login_frame, text="Register", font=my_font_small, fg = white, bg=lightgreen, borderwidth=0, width=8, command = lambda: self.register())
+        self.forgotpw_button = tkinter.Button(self.login_frame, text="Forgot password", font=my_font_small, fg = white, bg=lightgreen, borderwidth=0, width= 16, command=lambda: self.forgot_password())
         self.showpasswd_button = tkinter.Checkbutton(self.login_frame, text="Show password", font=my_font_small, fg="orange", bg = darkgreen, activebackground=darkgreen, command = lambda: self.show_passwd(self.pw_entry), anchor = 'w')
 
         self.login_label.grid(row = 0, column = 0, columnspan = 4, padx = 2, pady = 10)
@@ -73,10 +74,37 @@ class login_window:
         if self.uid_entry.get() == "" or self.pw_entry == "":
             self.pop_up("Missing field(s)!", "Please fill in every field(s)!")
         else:
-            login()
+            self.login()
 
     def pop_up(self, title, message):
         messagebox.showinfo(title, message)
+
+    def login(self):
+        #global myID, password, friend_list, server_sock, login_win, friendlist_win
+        myID = self.uid_entry.get()
+        password = self.pw_entry.get()
+        server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_sock.connect(ACC_SERVER)
+        server_sock.send(f"login {myID} {password}".encode(ENCODER))
+        response = server_sock.recv(BYTESIZE).decode(ENCODER)
+        if (response == "FAIL"):
+            self.pop_up("Login failed!", "Incorrect User ID or Password!")
+        else:
+            email = server_sock.recv(BYTESIZE).decode(ENCODER)
+            friend_name = server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
+            friend_ip = server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
+            friend_port = server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
+            friend_list = {}
+            for i in range(len(friend_name)):
+                friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
+            frlist_window(myID, password, email, friend_list, server_sock)
+            self.close()
+
+    def register(self):
+        pass
+
+    def forgot_password(self):
+        pass
 
     def close(self):
         self.login_page.quit()
@@ -86,9 +114,23 @@ class login_window:
 
 
 class frlist_window:
-    def __init__(self, onlinelist, offlinelist):
-        self.updatelist(onlinelist, offlinelist)
-
+    def __init__(self, myID: str, password: str, email: str, friend_list: dict, server_sock: socket):
+        self.myID = myID
+        self.password = password
+        self.email = email
+        self.friend_list = friend_list
+        self.server_sock = server_sock
+        self.conversation_list = dict
+        
+        #Separate friend into online and offline list
+        self.onlinelist = []
+        self.offlinelist = []
+        for userid in self.friend_list:
+            if friend_list[userid] == ('NULL', 'NULL'):
+                self.offlinelist.append(userid)
+            else:
+                self.onlinelist.append(userid)
+        
         #define FRIEND LIST window
         self.flist_page = tkinter.Tk()
         self.flist_page.title("Simple P2P Chat application - Friends List")
@@ -115,9 +157,9 @@ class frlist_window:
 
         # Info Frame Layout
         self.name_label = tkinter.Label(self.info_frame, text = "User ID:", font=my_font, fg=darkgreen, bg=yellow, width= 10, anchor = "nw")
-        self.name = tkinter.Label(self.info_frame, text = "hoangtran12902", font=my_font, fg=darkgreen, bg=yellow, width=44, anchor = "nw")
+        self.name = tkinter.Label(self.info_frame, text = self.myID, font=my_font, fg=darkgreen, bg=yellow, width=44, anchor = "nw")
         self.mail_label = tkinter.Label(self.info_frame, text = "User Email:", font=my_font, fg=darkgreen, bg=yellow, width= 10, anchor = "nw")
-        self.mail = tkinter.Label(self.info_frame, text = "hoang.tran12902@gmail.com", font=my_font, fg=darkgreen, bg=yellow, width=44, anchor = "nw")
+        self.mail = tkinter.Label(self.info_frame, text = self.email, font=my_font, fg=darkgreen, bg=yellow, width=44, anchor = "nw")
 
         self.name_label.grid(row = 0 , column=0, padx = 5, pady = 5)
         self.name.grid(row = 0 , column=1, columnspan= 2, padx = 5, pady = 5)
@@ -134,7 +176,7 @@ class frlist_window:
 
         #List Frame Layout
         self.my_scrollbar = tkinter.Scrollbar(self.list_frame, orient=VERTICAL)
-        self.my_listbox = tkinter.Listbox(self.list_frame, height=20, width=55, borderwidth=0, bg=white, fg=darkgreen, font=my_font, yscrollcommand=self.my_scrollbar.set)
+        self.my_listbox = tkinter.Listbox(self.list_frame, height=20, width=55, borderwidth=0, bg=white, fg=darkgreen, font=my_font, yscrollcommand=self.my_scrollbar.set, selectmode=SINGLE)
         self.my_scrollbar.config(command=self.my_listbox.yview)
         self.my_listbox.grid(row=0, column=0)
         self.my_scrollbar.grid(row=0, column=1, sticky="NS")
@@ -148,15 +190,22 @@ class frlist_window:
         self.search_button.bind("<Button-1>", self.search_check)
 
         #Button Frame Layout
-        self.unfriend_button = tkinter.Button(self.button_frame, text = "Unfriend", width=27, borderwidth = 0, font = my_font, bg = yellow, fg = black)
-        self.chat_button = tkinter.Button(self.button_frame, text = "Start chatting", width = 27, borderwidth = 0, font = my_font, bg = yellow, fg = black)
+        self.unfriend_button = tkinter.Button(self.button_frame, text = "Unfriend", width=27, borderwidth = 0, font = my_font, bg = yellow, fg = black, command = lambda: self.unfriend())
+        self.chat_button = tkinter.Button(self.button_frame, text = "Start chatting", width = 27, borderwidth = 0, font = my_font, bg = yellow, fg = black, command = lambda: self.start_conversation())
         self.unfriend_button.grid(row=0, column=0,padx=5, pady=5)
         self.chat_button.grid(row=0, column=1, padx=5, pady=5)
         self.update_displaylist(self.onlinelist, self.offlinelist)
 
-    def updatelist(self, onlinelist, offlinelist):
-        self.onlinelist = onlinelist
-        self.offlinelist = offlinelist
+        #Pop up confirm message when quit
+        self.flist_page.protocol("WM_DELETE_WINDOW", self.close_confirm)
+
+        #Create a thread for listening incoming update from server
+        update_thread = threading.Thread(target = self.listen_server)
+        update_thread.start()
+        
+        #Create a thread for listening to friend connections
+        connections_thread = threading.Thread(target=self.listen_to_friend)
+        connections_thread.start()
 
     def search_check(self, event):
         typed = self.input_entry.get()
@@ -182,27 +231,109 @@ class frlist_window:
             self.my_listbox.insert(END, user)
             self.my_listbox.itemconfig(END,{'fg':'gray63'})
 
-    def render(self):
-        #Run the self.flist_page window's mainloop()
-        self.flist_page.mainloop()
+    def start_conversation(self):
+        chosen = self.my_listbox.curselection()
+        if len(chosen) == 0:
+            showerror(title="No friend selected!", message=f"Please choose a firend to start chatting!")
+        else:
+            friend_ID = self.my_listbox.get(chosen[0])
+            self.connect_to_friend(friend_ID)
+
+
+    def listen_server(self):
+        while True:
+            try:
+                server_mess = self.server_sock.recv(BYTESIZE).decode(ENCODER)
+                if (server_mess == "FRIEND_LIST_UPDATE"):
+                    self.frlist_update()
+            except:
+                showerror(title="Server connection lost!", message=f"Cannot connect to server!")
+                self.server_sock.close()
+                break
+
+
+    def frlist_update(self):
+        #global friend_list, server_sock
+        friend_name = self.server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
+        friend_ip = self.server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
+        friend_port = self.server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
+        for i in range(len(friend_name)):
+            self.friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
+
+    def listen_to_friend(self):
+        #global listen_sock, conver_win_list
+        listen_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        listen_sock.bind(LISTEN_ADDRESS)
+        listen_sock.listen()
+
+        # Verify and Accept or Deny Connection
+        while True:
+            connected_client, address = listen_sock.accept()
+            connected_ID = self.check_address(address)
+            if (connected_ID != "NULL"):
+                #print("Connected with {}".format(str(address)))
+                self.conversation_list[connected_ID] = conversation_window(self.flist_page, self.myID, self.email, connected_ID, connected_client)
+            else:
+                connected_client.close()
+
+    def connect_to_friend(self, friend_ID):
+        #global sock_list
+        if friend_ID not in self.conversation_list:
+            new_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            new_socket.connect(self.friend_list[friend_ID])
+            self.conversation_list[friend_ID] = conversation_window(self.flist_page, self.myID, self.email, friend_ID, new_socket)
+        else:
+            self.conversation_list[friend_ID].bring_to_front()
+
+    def check_address(self, address):
+        for userid in self.friend_list:
+            if self.friend_list[userid] == address:
+                return userid
+        return "NULL"
+
+    def find_user(self):
+        pass
+
+    def request_friend(self):
+        pass
+
+    def unfriend(self):
+        pass
+    
+    def show_friend_request(self):
+        pass
+
+    def close_confirm(self):
+        confirm_reply = askyesno(title="Log out?", message="You will log out this user once you close this window!\nDo you want to log out?")
+        if confirm_reply:
+            for friend in self.conversation_list:
+                self.conversation_list[friend].disconnect()
+                self.conversation_list.pop(friend)
+            self.flist_page.destroy()
+            login_window()
+
+
 
 class conversation_window:
-    def __init__(self, root):
+    def __init__(self, root: Tk, myID: str, email: str, userid: str, user_socket: socket):
+        self.userid = userid
+        self.user_socket = user_socket
+
         #define CONVERSATION window
-        self.comver_page = tkinter.Toplevel(root)
-        self.comver_page.title("Simple P2P Chat application - Conversation")
-        self.comver_page.geometry("700x700")
-        self.comver_page.resizable(0,0)
+        self.conver_page = tkinter.Toplevel(root)
+        self.conver_page.title(f"Simple P2P Chat application - Conversation with {self.userid}")
+        self.conver_page.geometry("700x700")
+        self.conver_page.resizable(0,0)
 
         #set window colors
-        self.comver_page.config(bg=darkgreen)
+        self.conver_page.config(bg=darkgreen)
 
         #Define GUI Layout
         #Create Frames
-        self.info_frame = tkinter.Frame(self.comver_page, bg=yellow)
-        self.label_frame = tkinter.Frame(self.comver_page, bg = darkgreen)
-        self.input_frame = tkinter.Frame(self.comver_page, bg=white)
-        self.output_frame = tkinter.Frame(self.comver_page, bg=white)
+        self.info_frame = tkinter.Frame(self.conver_page, bg=yellow)
+        self.label_frame = tkinter.Frame(self.conver_page, bg = darkgreen)
+        self.input_frame = tkinter.Frame(self.conver_page, bg=white)
+        self.output_frame = tkinter.Frame(self.conver_page, bg=white)
 
         self.info_frame.pack(pady = 10)
         self.label_frame .pack(pady = 10)
@@ -211,16 +342,16 @@ class conversation_window:
 
         # Info Frame Layout
         self.name_label = tkinter.Label(self.info_frame, text = "User ID:", font=my_font, fg=darkgreen, bg=yellow, width= 10, anchor = "nw")
-        self.name = tkinter.Label(self.info_frame, text = "hoangtran12902", font=my_font, fg=darkgreen, bg=yellow, width=44, anchor = "nw")
+        self.name = tkinter.Label(self.info_frame, text = myID, font=my_font, fg=darkgreen, bg=yellow, width=44, anchor = "nw")
         self.mail_label = tkinter.Label(self.info_frame, text = "User Email:", font=my_font, fg=darkgreen, bg=yellow, width= 10, anchor = "nw")
-        self.mail = tkinter.Label(self.info_frame, text = "hoang.tran12902@gmail.com", font=my_font, fg=darkgreen, bg=yellow, width=44, anchor = "nw")
+        self.mail = tkinter.Label(self.info_frame, text = email, font=my_font, fg=darkgreen, bg=yellow, width=44, anchor = "nw")
 
         self.name_label.grid(row = 0 , column=0, padx = 5, pady = 5)
         self.name.grid(row = 0 , column=1, columnspan= 2, padx = 5, pady = 5)
         self.mail_label.grid(row = 1 , column=0, padx = 5, pady = 5)
         self.mail.grid(row = 1 , column=1, columnspan= 2, padx = 5, pady = 5)
 
-        self.friend_list_label = tkinter.Label(self.label_frame , text = "Chatting with huyhoang0512", font=('haveltica', 18), fg=white, bg=darkgreen, width=44, anchor = "nw")
+        self.friend_list_label = tkinter.Label(self.label_frame , text = f"Chatting with {self.userid}", font=('haveltica', 18), fg=white, bg=darkgreen, width=44, anchor = "nw")
         self.friend_list_label.grid(row = 0 , column=0, padx = 5, pady = 5)
 
         #Output Frame Layout
@@ -232,117 +363,103 @@ class conversation_window:
 
         #Input Frame Layout
         self.input_entry = tkinter.Entry(self.input_frame, width=39, borderwidth=0, font=my_font)
-        self.file_button = tkinter.Button(self.input_frame, text="File", borderwidth=0, width=7, font=my_font, bg=yellow, fg = black)
-        self.send_button = tkinter.Button(self.input_frame, text="Send", borderwidth=0, width=7, font=my_font, bg=yellow, fg = black)
+        self.file_button = tkinter.Button(self.input_frame, text="File", borderwidth=0, width=7, font=my_font, bg=yellow, fg = black, command = lambda: self.send_file())
+        self.send_button = tkinter.Button(self.input_frame, text="Send", borderwidth=0, width=7, font=my_font, bg=yellow, fg = black, command = lambda: self.send_message())
         self.input_entry.grid(row=0, column=0, padx=5, pady=5)
         self.file_button.grid(row=0, column=1, padx=5, pady=5)
         self.send_button.grid(row=0, column=2, padx=5, pady=5)
 
-    def render(self):
-        #Run the self.comver_page window's mainloop()
-        self.comver_page.mainloop()
+        #Pop up confirm message when quit
+        self.conver_page.protocol("WM_DELETE_WINDOW", self.close_confirm)
 
-def login():
-    global myID, password, friend_list, server_sock, login_win, friendlist_win
-    myID = login_win.uid_entry.get()
-    password = login_win.pw_entry.get()
-    server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_sock.connect(ACC_SERVER)
-    server_sock.send(f"s l {myID} {password}".encode(ENCODER))
-    response = server_sock.recv(BYTESIZE).decode(ENCODER)
-    if (response == "FAIL"):
-        login_win.pop_up("Login failed!", "Incorrect User ID or Password!")
-    else:
-        listen_frlist_update()
-        login_win.close()
-        onlinelist = []
-        offlinelist = []
-        for userid in friend_list:
-            if friend_list[userid] == ('NULL', 'NULL'):
-                offlinelist.append(userid)
-            else:
-                onlinelist.append(userid)
-        friendlist_win = frlist_window(onlinelist, offlinelist)
+        #Create a thread for listening incomming messages
+        self.receive_thread = threading.Thread(target=self.recieve_message)
+        self.receive_thread.start()
 
-def listen_frlist_update():
-    global friend_list, server_sock
-    friend_name = server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
-    friend_ip = server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
-    friend_port = server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
-    for i in range(len(friend_name)):
-        friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
+    def add_to_list(self, message):
+        self.my_listbox.insert(END, message)
 
-def log_out():
-    pass
+    def disconnect(self):
+        self.user_socket.close()
+        self.conver_page.destroy()
 
-def find_user():
-    pass
-
-def request_friend():
-    pass
-
-def unfriend():
-    pass
-
-def register():
-    pass
-
-def forgot_password():
-    pass
-
-def listen_to_friend():
-    global listen_sock
-    listen_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    listen_sock.bind(LISTEN_ADDRESS)
-    listen_sock.listen()
-
-    # Verify and Accept or Deny Connection
-    while True:
-        connected_client, address = listen_sock.accept()
-        connected_ID = check_address(address)
-        if (connected_ID != "NULL"):
-            sock_list[connected_ID] = connected_client
-            #print("Connected with {}".format(str(address)))
-            receive_thread = threading.Thread(target=recieve_message, args=(connected_client,connected_ID,))
-            receive_thread.start()
-            send_thread = threading.Thread(target=send_message, args=(connected_client,))
-            send_thread.start()
+    def send_message(self):
+        message = self.input_entry.get()
+        check_mess = []
+        for index in range(6):
+            check_mess[index] = message[index]
+        if check_mess == "<FILE>":
+            showerror(title="Message syntax error!", message="Please do not start a message with FILE: '!")
         else:
-            connected_client.close()
+            self.user_socket.send(f"m {message}".encode(ENCODER))
+            self.add_to_list(f"You: {message}")
 
-def recieve_message(connected_client, client_ID):
-    while True:
-        type, message = connected_client.recv(BYTESIZE).decode(ENCODER).split(' ')
-        if (type == 'm'):
-            message = '{}: {}'.format(client_ID, message)
-            print(message)
-        else:
-            pass
+    def send_file(self):
+        file_path = self.get_file()
+        file_name = os.path.basename(file_path)
+        file = open(file_path, 'rb')
+        file_size = os.path.getsize(file_path)
+        self.user_socket.send(f"f {file_name}:{str(file_size)}".encode(ENCODER))
+        data = file.read()
+        self.user_socket.sendall(data)
+        self.user_socket.send(b"<END_FILE>")
+        self.add_to_list(END, f"<FILE>You: {file_name}")
+        self.my_listbox.itemconfig(END,{'fg':'blue'})
+        #self.my_listbox.itemconfig(END,{'font: my_font_italic_underscore'})
+        file.close()
 
-def send_message(connected_client, message):
-    message = '{} {}'.format('m', message)
-    connected_client.send(message.encode(ENCODER))
+    def recieve_message(self):
+        while True:
+            try:
+                type, message = self.user_socket.recv(BYTESIZE).decode(ENCODER).split(' ')
+                if (type == 'm'):
+                    message = '{}: {}'.format(self.userid, message)
+                    self.add_to_list(message)
+                else:
+                    file_name = message.split(':')
+                    file_path = f"/{self.userid}/file/{file_name}"
+                    is_existed = os.path.isfile(file_path)
+                    i = 1
+                    while is_existed:
+                        file_path = f"/{self.userid}/file/{file_name}_({str(i)})"
+                        is_existed = os.path.isfile(file_path)
+                        i += 1
+                
+                    file = open(file_path, 'wb')
+                    file_bytes = b""
+                    done = False
 
-def send_file(connected_client):
-    pass
+                    while not done:
+                        file_data = self.user_socket.recv(1024)
+                        file_bytes += file_data
+                        if file_bytes[-10:] == b"<END_FILE>":
+                            done = True
+                            file_bytes -= b"<END_FILE>"
 
-def connect_to_friend(friend_ID):
-    global sock_list
-    sock_list[friend_ID] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock_list[friend_ID].connect(friend_list[friend_ID])
-    receive_thread = threading.Thread(target=recieve_message, args=(sock_list[friend_ID],friend_ID,))
-    receive_thread.start()
-    send_thread = threading.Thread(target=send_message, args=(sock_list[friend_ID],))
-    send_thread.start()
+                    file.write(file_bytes)
+                    file.close()
+                    message = '<FILE>{}: {}'.format(self.userid, file_name)
+            except:
+                #An error occured, disconnect from the server
+                #conver_win_list.pop(self.userid)
+                #sock_list.pop(self.userid)
+                showerror(title="Connection lost!", message=f"{self.userid} has left the conversation!")
+                self.user_socket.close()
+                break
 
+    def close_confirm(self):
+        confirm_reply = askyesno(title="Leave conversation?", message="You will disconnect with this user and the conversation will be deleted when you close this window!\nDo you want to leave?")
+        if confirm_reply:
+            self.user_socket.close()
+            self.conver_page.destroy()
 
-def check_address(address):
-    for userid in friend_list:
-        if friend_list[userid] == address:
-            return userid
-    return "NULL"
+    def get_file(self):
+        filename = filedialog.askopenfilename(title='Select a file')
+        #tkinter.Label(tkinter.Toplevel(), text = self.filename).pack()
+        return filename
 
-login_win = login_window()
-#conversation_win = conversation_window(login_win.login_page)
-#login_win.render()
+    def bring_to_front(self):
+        self.conver_page.lift()
+
+login_window().render()
 
