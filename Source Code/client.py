@@ -229,7 +229,6 @@ class frlist_window:
             friend_ID = self.my_listbox.get(chosen[0])
             self.connect_to_friend(friend_ID)
 
-
     def listen_server(self):
         while True:
             try:
@@ -240,7 +239,6 @@ class frlist_window:
                 showerror(title="Server connection lost!", message=f"Cannot connect to server!")
                 self.server_sock.close()
                 break
-
 
     def frlist_update(self):
         #global friend_list, server_sock
@@ -291,6 +289,9 @@ class frlist_window:
         pass
     
     def show_friend_request(self):
+        pass
+
+    def create_chatroom(self):
         pass
 
     def close_confirm(self):
@@ -450,6 +451,20 @@ class conversation_window:
     def bring_to_front(self):
         self.conver_page.lift()
 
+class register_window:
+    pass
+
+class forgotPassword_window:
+    pass
+
+class addFriend_window:
+    pass
+
+class friendRequest_window:
+    pass
+
+class chatroom_window:
+    pass
 
 login_window().render()
 
