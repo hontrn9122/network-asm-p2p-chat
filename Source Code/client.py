@@ -15,16 +15,6 @@ MY_PORT = 50001
 LISTEN_ADDRESS = ('localhost', MY_PORT)
 ENCODER = 'utf-8'
 BYTESIZE = 1024
-# Defining global variable
-#global myID
-#global password
-#friend_list: dict
-#global server_sock
-#global listen_sock
-#sock_list: dict
-#global login_win
-#global friendlist_win
-#conver_win_list: dict
 
 class login_window:
     def __init__(self):
@@ -313,7 +303,6 @@ class frlist_window:
             login_window()
 
 
-
 class conversation_window:
     def __init__(self, root: Tk, myID: str, email: str, userid: str, user_socket: socket):
         self.userid = userid
@@ -460,6 +449,7 @@ class conversation_window:
 
     def bring_to_front(self):
         self.conver_page.lift()
+
 
 login_window().render()
 

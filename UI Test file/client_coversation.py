@@ -61,10 +61,10 @@ class conversation_window:
         self.conver_page.protocol("WM_DELETE_WINDOW", self.close_confirm)
 
     def close_confirm(self):
-        #confirm_reply = askyesno(title="Leave conversation?", message="You will disconnect with this user and the conversation will be deleted when you close this window!\nDo you want to close?")
-        confirm_reply = showerror(title="Message syntax error!", message="Please do not start a message with 'FILE: '!")
-        #if confirm_reply:
-        self.conver_page.destroy()
+        confirm_reply = askyesno(title="Leave conversation?", message="You will disconnect with this user and the conversation will be deleted when you close this window!\nDo you want to close?")
+        #confirm_reply = showerror(title="Message syntax error!", message="Please do not start a message with 'FILE: '!")
+        if confirm_reply:
+            self.conver_page.destroy()
 
     def get_file(self):
         self.filename = filedialog.askopenfilename(title='Select a file')
