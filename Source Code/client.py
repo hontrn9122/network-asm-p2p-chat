@@ -201,7 +201,7 @@ class frlist_window:
 
     def search_check(self, event):
         typed = self.input_entry.get()
-        if type == '':
+        if typed == '':
             self.update_displaylist(self.onlinelist, self.offlinelist)
         else:
             online_tmplist = []
@@ -300,7 +300,12 @@ class frlist_window:
         addFriend_window()
     
     def unfriend(self):
-        pass
+        chosen = self.my_listbox.curselection()
+        if len(chosen) == 0:
+            showerror(title="No friend selected!", message=f"Please choose a firend to start chatting!")
+        else:
+            friend_ID = self.my_listbox.get(chosen[0])
+            self.server_sock.send(f"UNFRIEND {friend_ID}".encode(ENCODER))
     
     def show_friend_request(self):
         pass
@@ -391,7 +396,7 @@ class conversation_window:
         message = self.input_entry.get()
         check_mess = []
         for index in range(6):
-            check_mess[index] = message[index]
+            check_mess[index] = message[index] 
         if check_mess == "<FILE>":
             showerror(title="Message syntax error!", message="Please do not start a message with FILE: '!")
         else:

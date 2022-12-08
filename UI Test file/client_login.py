@@ -152,9 +152,9 @@ class frlist_window:
             self.my_listbox.insert(END, user)
             self.my_listbox.itemconfig(END,{'fg':'gray63'})
 
-    #def render(self):
+    def render(self):
         #Run the self.flist_page window's mainloop()
-        #self.flist_page.mainloop()
+        self.flist_page.mainloop()
 
 #friendlist_window = frlist_window(onlinelist, offlinelist)
 #friendlist_window.render()

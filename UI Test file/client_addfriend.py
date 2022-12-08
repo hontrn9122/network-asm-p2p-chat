@@ -52,9 +52,9 @@ class addfriend_window:
         self.server_sock.send(f"FIND {user_id}".encode(ENCODER))
         response = self.server_sock.recv(BYTESIZE).decode(ENCODER)
 
-    #def render(self):
+    def render(self):
         #Run the self.flist_page window's mainloop()
-        #self.addfriend_popup.mainloop()
+        self.addfriend_popup.mainloop()
 
 
 test = addfriend_window()

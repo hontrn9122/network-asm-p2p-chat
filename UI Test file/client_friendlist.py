@@ -82,7 +82,7 @@ class frlist_window:
 
     def search_check(self, event):
         typed = self.input_entry.get()
-        if type == '':
+        if typed == '':
             self.update_displaylist(self.onlinelist, self.offlinelist)
         else:
             online_tmplist = []
