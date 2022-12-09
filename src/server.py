@@ -39,4 +39,5 @@ def connect_client():
 
 
 def recieve_message(client_socket, client_address):
-    
+    try:
+        flag, message = client_socket.recgggg
