@@ -34,10 +34,26 @@ server_socket.listen()
 def connect_client():
     while True:
         client_socket, client_address = server_socket.accept()
-        client_thread = threading.Thread(target=recieve_message, args=(client_socket, client_address,))
+        client_thread = threading.Thread(target=verify_account, args=(client_socket, client_address,))
         client_thread.start()
 
 
-def recieve_message(client_socket, client_address):
+def verify_account(client_socket, client_address):
+    while True:
+        flag, message = client_socket.recv(BYTESIZE).decode(ENCODER)
+        if flag == 'LOGIN':
+            userId, password = message.split(':')
+            
+        elif flag == "REGISTER":
+            pass
+        elif flag == "FORGOTPASS":
+            pass
+
+def recieve_message(client_socket):
     try:
-        flag, message = client_socket.recgggg
+        flag, message = client_socket.recv(BYTESIZE).decode(ENCODER)
+        if flag == 'LOGIN':
+            pass
+        if 
+    except:
+        pass
