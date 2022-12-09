@@ -34,4 +34,9 @@ server_socket.listen()
 def connect_client():
     while True:
         client_socket, client_address = server_socket.accept()
+        client_thread = threading.Thread(target=recieve_message, args=(client_socket, client_address,))
+        client_thread.start()
 
+
+def recieve_message(client_socket, client_address):
+    
