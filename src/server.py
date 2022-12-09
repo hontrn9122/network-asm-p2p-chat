@@ -1,30 +1,30 @@
 import socket
 import threading
-from database import *
+from db import *
+import time
 
-HOST_IP = socket.gethostbyname(socket.gethostname())
-HOST_PORT = 5050
+HOST_IP = socket.gethostbyname('localhost')
+HOST_PORT = 50000
 ENCODER = 'utf-8'
 BYTESIZE = 1024
-DISCONNECT = "!DISCONNECT!"
 
 
 clients = []
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_socket.bind((HOST_IP, HOST_PORT))
+server_socket.listen()
 
 
-def service():
+def service(conn, addr):
     try:
-        cmd = recv_msg()
         connected = True
+        print('Hello')
         while connected:
-            cmd = recv_msg()
+            cmd = conn.recv(BYTESIZE).decode(ENCODER)
             if cmd != None:
                 print(cmd)
             if cmd == DISCONNECT:
                 print(f"[SERVER]: {username} is offline!")
-                update()
                 connected = False
             if cmd == "Friend List":
                 pass
@@ -40,30 +40,26 @@ def service():
                 pass
             if cmd == "Online Users":
                 online_list()
-        stop()
     except:
-        pass
+        stop(conn)
 
 
 def online_list():
     msg = "| "
     for user in online_users:
         msg += (user + " | ")
-    send_msg(msg)
 
 
 def friend_list():
     msg = "| "
     for friend in user_db.get(username).friend_list:
         msg += friend + " | "
-    send_msg(msg)
 
 
 def friend_request():
     msg = "| "
     for req in user_db.get(username).friend_request:
         msg += req + " | "
-    send_msg(msg)
 
 
 def add_friend():
@@ -78,26 +74,30 @@ def reject_friend_request():
     pass
 
 
-def login(username, password):
-    if username == None or password == None or user_db.get(username) == None or password != user_db.get(username).password:
-        send_msg("[SERVER]: Incorrect Login Information!")
-        return False
-    if password == user_db.get(username).password:
-        send_msg("[SERVER]: Login Successful!")
-        print(f"[INFO]: {username} logged in!")
+def stop(conn):
+    conn.close()
 
-        username = username
+
+def login(conn, username, password):
+    if user_db.get(username) == None or password != user_db.get(username).password:
+        send_msg(conn, "FAIL")
+        return False
+    elif password == user_db.get(username).password:
+        print(f"[INFO]: {username} logged in!")
+        send_msg(conn, 'SUCCESS')
+        send_msg(conn, user_db.get(username).email)
+        send_msg(conn, 'NULL')
+        send_msg(conn, 'NULL')
+        send_msg(conn, 'NULL')
         online_users.append(username)
         return True
 
 
-def register(username, password):
+def register(conn, username, password):
     try:
         if user_db.get(username) != None:
-            send_msg("[SERVER]: Username is already taken!")
             return False
         if username == None or password == None:
-            send_msg("[SERVER]: Username/Password is invalid!")
             return False
         add_user(username, password)
         return True
@@ -105,49 +105,60 @@ def register(username, password):
         pass
 
 
-def verify(conn, addr):
-    send_msg("!Verification Process!")
-    send_msg("\"Register\" command to make a new account!")
-    send_msg("\"Login\" command to login!")
-    try:
-        while True:
-            cmd = server_socket.recv(BYTESIZE).decode(ENCODER)
-            list_cmd = cmd_parser(cmd)
+def cmd_parser(cmd):
+    list_cmd = []
+    temp = cmd.split(" ")
+    list_cmd.append(temp[0])
+    if temp[0] == "LOGIN" or temp[0] == "REGISTER":
+        temp1 = temp[1].split("_")
+        username = temp1[0]
+        password = temp1[1]
+        if len(username) == 0:
+            username = None
+        if len(password) == 0:
+            password = None
+        list_cmd.append(username)
+        list_cmd.append(password)
+    if temp[0] == "FORGOTPASS":
+        pass
+    return list_cmd
 
-            if list_cmd[0] == "LOGIN":
-                if login(list_cmd[1], list_cmd[2]):
-                    break
-            if cmd == "REGISTER":
-                if register(list_cmd[1], list_cmd[2]):
-                    send_msg("Register successfully!")
-                    verify()
-            if cmd == "FORGOTPASS":
-                pass
+
+def verify(conn, addr):
+    try:
+        cmd = conn.recv(BYTESIZE).decode(ENCODER)
+        list_cmd = cmd_parser(cmd)
+
+        if list_cmd[0] == "LOGIN":
+            if login(conn, list_cmd[1], list_cmd[2]):
+                service(conn, addr)
+            return
+        if cmd == "REGISTER":
+            if register(conn, list_cmd[1], list_cmd[2]):
+                verify()
+        if cmd == "FORGOTPASS":
+            pass
     except:
         pass
 
 
-def send_msg(msg):
-    server_socket.send(msg.encode('utf-8'))
+def send_msg(conn, msg):
+    time.sleep(0.01)
+    conn.send(msg.encode(ENCODER))
 
 
 def run():
     print('[SERVER]: Server is running . . . ')
     print(
         f'[SERVER]: Server is listening on port: {HOST_PORT}, ip: {HOST_IP} ')
-    server_socket.listen()
     while True:
         conn, addr = server_socket.accept()
+
         thread = threading.Thread(
-            target=handle_client, args=(conn, addr))
+            target=verify, args=(conn, addr))
         thread.start()
         print(f"[ACTIVE CONNECTIONS] {threading.active_count()-1}")
     server_socket.close()
-
-
-def handle_client(conn, addr):
-    verify(conn, addr)
-    service()
 
 
 if __name__ == '__main__':
