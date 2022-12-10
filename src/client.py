@@ -76,7 +76,7 @@ class login_window:
         except:
             messagebox.showerror("Connect failed!", "Cannot connect to the server!")
             return
-        server_sock.send(f"LOGIN {myID}_{password}".encode(ENCODER))
+        server_sock.send(f"LOGIN {myID}:{password}".encode(ENCODER))
         response = server_sock.recv(BYTESIZE).decode(ENCODER)
         if (response == "FAIL"):
             messagebox.showwarning("Login failed!", "Incorrect User ID or Password!")

@@ -79,7 +79,7 @@ def reject_friend_request():
 
 
 def login(username, password):
-    if username == None or password == None or user_db.get(username) == None or password != user_db.get(username).password:
+    if user_db.get(username) == None or password != user_db.get(username).password:
         send_msg("[SERVER]: Incorrect Login Information!")
         return False
     if password == user_db.get(username).password:
@@ -91,65 +91,49 @@ def login(username, password):
         return True
 
 
-def register(username, password):
-    try:
-        if user_db.get(username) != None:
-            send_msg("[SERVER]: Username is already taken!")
-            return False
-        if username == None or password == None:
-            send_msg("[SERVER]: Username/Password is invalid!")
-            return False
-        add_user(username, password)
-        return True
-    except:
-        pass
+# def register(username, password):
+#     try:
+#         if user_db.get(username) != None:
+#             send_msg("[SERVER]: Username is already taken!")
+#             return False
+#         if username == None or password == None:
+#             send_msg("[SERVER]: Username/Password is invalid!")
+#             return False
+#         add_user(username, password)
+#         return True
+#     except:
+#         pass
 
 
 def verify(conn, addr):
-    send_msg("!Verification Process!")
-    send_msg("\"Register\" command to make a new account!")
-    send_msg("\"Login\" command to login!")
-    try:
-        while True:
-            cmd = server_socket.recv(BYTESIZE).decode(ENCODER)
-            list_cmd = cmd_parser(cmd)
+    # send_msg("!Verification Process!")
+    # send_msg("\"Register\" command to make a new account!")
+    # send_msg("\"Login\" command to login!")
+    flag, message = server_socket.recv(BYTESIZE).decode(ENCODER).split(' ')
+    if flag == "LOGIN":
+        userid, password = message.split(':')
+        if login(userid, password):
 
-            if list_cmd[0] == "LOGIN":
-                if login(list_cmd[1], list_cmd[2]):
-                    break
-            if cmd == "REGISTER":
-                if register(list_cmd[1], list_cmd[2]):
-                    send_msg("Register successfully!")
-                    verify()
-            if cmd == "FORGOTPASS":
-                pass
-    except:
-        pass
+    # if flag == "REGISTER":
+    #     if register(list_cmd[1], list_cmd[2]):
+    #         send_msg("Register successfully!")
+    #         verify()
+    # if flag == "FORGOTPASS":
+    #     pass
 
-
-def send_msg(msg):
-    server_socket.send(msg.encode('utf-8'))
-
-
-def run():
+def server():
     print('[SERVER]: Server is running . . . ')
     print(
         f'[SERVER]: Server is listening on port: {HOST_PORT}, ip: {HOST_IP} ')
     server_socket.listen()
     while True:
         conn, addr = server_socket.accept()
-        thread = threading.Thread(
-            target=handle_client, args=(conn, addr))
+        thread = threading.Thread(target=verify, args=(conn, addr,))
         thread.start()
         print(f"[ACTIVE CONNECTIONS] {threading.active_count()-1}")
     server_socket.close()
 
 
-def handle_client(conn, addr):
-    verify(conn, addr)
-    service()
-
-
 if __name__ == '__main__':
     load_data()
-    run()
+    server()
