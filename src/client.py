@@ -100,17 +100,20 @@ class login_window:
         else:
             email = server_sock.recv(BYTESIZE).decode(ENCODER)
             print(email)
-            friend_name = server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
+            friend_name = server_sock.recv(
+                BYTESIZE).decode(ENCODER).strip().split(' ')
             print(friend_name)
-            friend_ip = server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
+            friend_ip = server_sock.recv(BYTESIZE).decode(
+                ENCODER).strip().split(' ')
             print(friend_ip)
-            friend_port = server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
+            friend_port = server_sock.recv(
+                BYTESIZE).decode(ENCODER).strip().split(' ')
             print(friend_port)
             friend_list = {}
             for i in range(len(friend_name)):
                 friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
-
             frlist_window(myID, password, email, friend_list, server_sock)
+            self.close()
 
     def register(self):
         pass

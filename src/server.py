@@ -4,6 +4,8 @@ import threading
 import os
 import json
 import time
+import sqlite3
+from db import *
 from tkinter import *
 from tkinter import messagebox
 from theme import *
@@ -19,14 +21,6 @@ BYTESIZE = 1024
 # Manage online client
 client_socket_list = []
 client_name_list = []
-
-user_account_list = {
-    "huyhoang": {
-        "email": "huy@gmail.com",
-        "password": "123456",
-        "friend_list": [],
-    }
-}
 
 # Create a server socket using TCP protocol
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -44,41 +38,79 @@ def server():
 
 
 def verify_account(client_socket, client_address):
+    database = sqlite3.connect('user.db')
     flag, message = client_socket.recv(BYTESIZE).decode(ENCODER).split(' ')
     if flag == 'LOGIN':
-        userid, password = message.split(':')
-        if login(client_socket, userid, password):
-            client_name_list.append(userid)
-            client_name_list.append(client_address)
+        li_userid, li_password = message.split(':')
+        if login(client_socket, li_userid, li_password, database):
+            client_name_list.append(li_userid)
+            client_socket_list.append(client_address)
             service(client_socket)
-        else:
-            return
-    elif flag == "REGISTER":
-        userid, password = message.split(':')
-    elif flag == "FORGOTPASS":
-        pass
+        return
+    elif flag == 'REGISTER':
+        reg_userid, reg_password, reg_email = message.split(':')
+        if register_account(client_socket, reg_userid,
+                            reg_password, reg_email, database):
+            verify_account(client_socket, client_address)
+        return
+    elif flag == 'FORGOTPASS':
+        fp_userid, new_password, fp_email = message.split(':')
+        if forgot_pass(client_socket, fp_userid, new_password, fp_email, database):
+            verify_account(client_socket, client_address)
+        return
 
 
-def login(client_socket, userid, password):
-    if userid not in user_account_list:
-        client_socket.send('FAIL'.encode(ENCODER))
-    elif password == user_account_list[userid]['password']:
-        client_socket.send('SUCCESS'.encode(ENCODER))
-        time.sleep(0.01)
-        client_socket.send(
-            (user_account_list[userid]['email']).encode(ENCODER))
-        time.sleep(0.01)
-        friend_name = json.dumps(user_account_list[userid]['friend_list'])
-        if friend_name == '[]':
-            client_socket.send('NULL'.encode(ENCODER))
-        else:
-            client_socket.send(friend_name.encode(ENCODER))
-        time.sleep(0.01)
-        client_socket.send('NULL'.encode(ENCODER))
-        time.sleep(0.01)
-        client_socket.send('NULL'.encode(ENCODER))
-        return True
+def get_friend_ids(friends):
+    friend_name = ' '
+    friend_ip = ''
+    friend_port = ''
+
+    if friends is not None:
+        for friend in friends:
+            friend_ids = friend[1].split(' ')
+            for friend_id in friend_ids:
+                ip = 'NULL'
+                port = 'NULL'
+                if friend_id in client_name_list:
+                    index = client_name_list.index(friend_id)
+                    ip, port = client_socket_list[index]
+                friend_name += friend_id + ' '
+                friend_ip += str(ip) + ' '
+                friend_port += str(port) + ' '
+    return friend_name, friend_ip, friend_port
+
+
+def login(client_socket, li_userid, li_password, database):
+    user = auth_login(database, li_userid)
+    if user is not None:
+        userid, password, email = user
+        if password == li_password:
+            send_message(client_socket, 'SUCCESS')
+            send_message(client_socket, email)
+
+            friends = get_friend(database, userid)
+            friend_name, friend_ip, friend_port = get_friend_ids(friends)
+
+            send_message(client_socket, friend_name)
+            send_message(client_socket, friend_ip)
+            send_message(client_socket, friend_port)
+            return True
+    send_message(client_socket, 'FAIL')
     return False
+
+
+def register(client_socket, userid, password, email, database):
+    if check_register_info(database, userid, email):
+        send_message(client_socket, 'FAIL')
+        return False
+    register_account(database, userid, password, email)
+    send_message(client_socket, 'SUCCESS')
+    return True
+
+
+def send_message(client_socket, message):
+    time.sleep(0.01)
+    client_socket.send(message.encode(ENCODER))
 
 
 def service(client_socket):
@@ -95,4 +127,5 @@ def service(client_socket):
 
 
 if __name__ == '__main__':
+    load_data('user.sql')
     server()

@@ -1,16 +1,48 @@
 import sqlite3
 
-conn = sqlite3.connect('user.db')
-
 
 def load_data(filename):
     with open(filename, 'r') as sql_file:
         sql = sql_file.read()
-    cs = conn.cursor()
-    cs.executescript(sql)
+    conn = sqlite3.connect('user.db')
+    database = conn.cursor()
+    database.executescript(sql)
     conn.commit()
     conn.close()
 
 
-if __name__ == '__main__':
-    load_data('user.sql')
+def register_account(database, userid, password, email):
+    database.execute(
+        f"INSERT INTO account VALUES ({userid}, {password}, {email})")
+    database.commit()
+
+
+def auth_login(database, userid):
+    user = database.execute(
+        f"SELECT * FROM account WHERE userid='{userid}'")
+    user = user.fetchone()
+    if user is not None:
+        return user
+    return None
+
+
+def get_friend(database, userid):
+    friends = database.execute(
+        f"SELECT * FROM friend WHERE userid='{userid}'")
+    if friends is not None:
+        return friends
+    return None
+
+
+def check_register_info(database, userid, email):
+    user = database.execute(
+        f"SELECT * FROM account WHERE userid='{userid}' OR email='{email}'")
+    if user is not None:
+        return True
+    return False
+
+
+def register_account(database, userid, password, email):
+    database.execute(
+        f"INSERT INTO account VALUES ('{userid}', '{password}', '{email}')")
+    database.commit()
