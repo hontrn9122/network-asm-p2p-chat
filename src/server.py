@@ -1,4 +1,9 @@
-import tkinter, socket, threading, os, json, time
+import tkinter
+import socket
+import threading
+import os
+import json
+import time
 from tkinter import *
 from tkinter import messagebox
 from theme import *
@@ -15,14 +20,6 @@ BYTESIZE = 1024
 client_socket_list = []
 client_name_list = []
 
-# Manage user account and their friends
-# Structure of User Account:
-#  userId: {
-#      password<string>,
-#      email<string>,
-#      friend_ip[],
-#      friend_port[]
-#  }
 user_account_list = {
     "huyhoang": {
         "email": "huy@gmail.com",
@@ -41,7 +38,8 @@ server_socket.listen()
 def server():
     while True:
         client_socket, client_address = server_socket.accept()
-        client_thread = threading.Thread(target=verify_account, args=(client_socket, client_address,))
+        client_thread = threading.Thread(
+            target=verify_account, args=(client_socket, client_address,))
         client_thread.start()
 
 
@@ -56,7 +54,7 @@ def verify_account(client_socket, client_address):
         else:
             return
     elif flag == "REGISTER":
-        pass
+        userid, password = message.split(':')
     elif flag == "FORGOTPASS":
         pass
 
@@ -67,7 +65,8 @@ def login(client_socket, userid, password):
     elif password == user_account_list[userid]['password']:
         client_socket.send('SUCCESS'.encode(ENCODER))
         time.sleep(0.01)
-        client_socket.send((user_account_list[userid]['email']).encode(ENCODER))
+        client_socket.send(
+            (user_account_list[userid]['email']).encode(ENCODER))
         time.sleep(0.01)
         friend_name = json.dumps(user_account_list[userid]['friend_list'])
         if friend_name == '[]':
@@ -82,8 +81,17 @@ def login(client_socket, userid, password):
     return False
 
 
-def service():
-    pass
+def service(client_socket):
+    try:
+        flag, message = client_socket.recv(BYTESIZE).decode(ENCODER).split(' ')
+        if flag == 'UNFRIEND':
+            pass
+        elif flag == 'FIND':
+            pass
+        elif flag == 'REQUEST':
+            pass
+    except:
+        client_socket.close()
 
 
 if __name__ == '__main__':

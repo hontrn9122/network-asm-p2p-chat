@@ -76,7 +76,8 @@ class login_window:
 
     def check_fields(self):
         if self.uid_entry.get() == "" or self.pw_entry == "":
-            messagebox.showwarning("Missing field(s)!", "Please fill in every field(s)!")
+            messagebox.showwarning("Missing field(s)!",
+                                   "Please fill in every field(s)!")
         else:
             self.login()
 
