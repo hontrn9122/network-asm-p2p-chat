@@ -1,10 +1,18 @@
 import tkinter, socket, threading, os, json, time
+import sqlite3
 from tkinter import *
 from tkinter import messagebox
 from theme import *
 from tkinter.messagebox import askyesno, showerror
 from tkinter import filedialog
-
+database = sqlite3.connect("account.db")
+c = database.cursor()
+c.execute("""CREATE TABLE account (
+    userid test,
+    password test,
+    email test
+)""")
+database.commit()
 # Defining constant
 HOSTNAME = 'localhost'
 PORT = 50000
