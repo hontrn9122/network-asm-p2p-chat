@@ -7,12 +7,21 @@ from tkinter.messagebox import askyesno, showerror
 from tkinter import filedialog
 database = sqlite3.connect("account.db")
 c = database.cursor()
-c.execute("""CREATE TABLE account (
-    userid test,
-    password test,
-    email test
-)""")
-database.commit()
+# c.execute("""CREATE TABLE account (
+#     userid text,
+#     password text,
+#     email text
+# )""")
+# c.execute("""CREATE TABLE friend (
+#     userid text,
+#     friendid text
+# )""")
+# c.execute("INSERT INTO account VAlUES ('huyhoang', '123456', 'huy@gmail.com')")
+# c.execute("INSERT INTO account VAlUES ('danh', '123789', 'danh@gmail.com')")
+# c.execute("INSERT INTO friend VAlUES ('huyhoang', 'danh')")
+# c.execute("INSERT INTO friend VAlUES ('danh', 'huyhoang')")
+# database.commit()
+# database.close()
 # Defining constant
 HOSTNAME = 'localhost'
 PORT = 50000
@@ -70,22 +79,26 @@ def verify_account(client_socket, client_address):
 
 
 def login(client_socket, userid, password):
-    if userid not in user_account_list:
+    user = c.execute("SELECT * FROM account WHERE userid=?", (userid,))
+    if not user:
         client_socket.send('FAIL'.encode(ENCODER))
-    elif password == user_account_list[userid]['password']:
+    elif password == user[1]:
         client_socket.send('SUCCESS'.encode(ENCODER))
         time.sleep(0.01)
-        client_socket.send((user_account_list[userid]['email']).encode(ENCODER))
+        client_socket.send(user[2].encode(ENCODER))
         time.sleep(0.01)
-        friend_name = json.dumps(user_account_list[userid]['friend_list'])
-        if friend_name == '[]':
-            client_socket.send('NULL'.encode(ENCODER))
-        else:
-            client_socket.send(friend_name.encode(ENCODER))
-        time.sleep(0.01)
-        client_socket.send('NULL'.encode(ENCODER))
-        time.sleep(0.01)
-        client_socket.send('NULL'.encode(ENCODER))
+        friends = c.execute("SELECT * FROM account WHERE userid=?", (userid,))
+        if friends:
+            friend_name = ""
+            friend_ip = ""
+            friend_port = ""
+            for friend in friends:
+                index = client_name_list.index(friend[1])
+                ip, port = client_socket_list[index]
+                friend_name += friend[1] + " "
+                friend_ip += ip + " "
+                friend_port += port + " "
+            client_socket.send(friend_name.strip().encode())
         return True
     return False
 
