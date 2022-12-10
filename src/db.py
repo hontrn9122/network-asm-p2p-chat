@@ -34,10 +34,26 @@ def get_friend(database, userid):
     return None
 
 
-def check_register_info(database, userid, email):
+def check_info(database, userid, email):
     user = database.execute(
         f"SELECT * FROM account WHERE userid='{userid}' OR email='{email}'")
-    if user is not None:
+    if user.fetchone() == None:
+        return False
+    return True
+
+
+def check_id(database, userid):
+    user = database.execute(
+        f"SELECT * FROM account WHERE userid='{userid}'")
+    if user.fetchone() == None:
+        return True
+    return False
+
+
+def check_email(database, userid, email):
+    user = database.execute(
+        f"SELECT * FROM account WHERE userid='{userid}' AND email='{email}'")
+    if user.fetchone() == None:
         return True
     return False
 
@@ -45,4 +61,10 @@ def check_register_info(database, userid, email):
 def register_account(database, userid, password, email):
     database.execute(
         f"INSERT INTO account VALUES ('{userid}', '{password}', '{email}')")
+    database.commit()
+
+
+def update_password(database, userid, password):
+    database.execute(
+        f"UPDATE account SET password='{password}' WHERE userid='{userid}'")
     database.commit()

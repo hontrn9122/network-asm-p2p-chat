@@ -40,6 +40,7 @@ def server():
 def verify_account(client_socket, client_address):
     database = sqlite3.connect('user.db')
     flag, message = client_socket.recv(BYTESIZE).decode(ENCODER).split(' ')
+    print(flag, message)
     if flag == 'LOGIN':
         li_userid, li_password = message.split(':')
         if login(client_socket, li_userid, li_password, database):
@@ -48,22 +49,26 @@ def verify_account(client_socket, client_address):
             service(client_socket)
         return
     elif flag == 'REGISTER':
-        reg_userid, reg_password, reg_email = message.split(':')
-        if register_account(client_socket, reg_userid,
-                            reg_password, reg_email, database):
-            verify_account(client_socket, client_address)
+        reg_userid, reg_email, reg_password = message.split(':')
+        if register(client_socket, reg_userid,
+                    reg_password, reg_email, database):
+            client_name_list.append(reg_userid)
+            client_socket_list.append(client_address)
+            service(client_socket)
         return
     elif flag == 'FORGOTPASS':
-        fp_userid, new_password, fp_email = message.split(':')
+        fp_userid, fp_email, new_password = message.split(':')
         if forgot_pass(client_socket, fp_userid, new_password, fp_email, database):
-            verify_account(client_socket, client_address)
+            client_name_list.append(fp_userid)
+            client_socket_list.append(client_address)
+            service(client_socket)
         return
 
 
 def get_friend_ids(friends):
     friend_name = ' '
-    friend_ip = ''
-    friend_port = ''
+    friend_ip = ' '
+    friend_port = ' '
 
     if friends is not None:
         for friend in friends:
@@ -100,10 +105,22 @@ def login(client_socket, li_userid, li_password, database):
 
 
 def register(client_socket, userid, password, email, database):
-    if check_register_info(database, userid, email):
+    if check_info(database, userid, email):
         send_message(client_socket, 'FAIL')
         return False
     register_account(database, userid, password, email)
+    send_message(client_socket, 'SUCCESS')
+    return True
+
+
+def forgot_pass(client_socket, fp_userid, new_password, fp_email, database):
+    if check_id(database, fp_userid):
+        send_message(client_socket, 'FAIL_USERID')
+        return False
+    if check_email(database, fp_userid, fp_email):
+        send_message(client_socket, 'FAIL_EMAIL')
+        return False
+    update_password(database, fp_userid, new_password)
     send_message(client_socket, 'SUCCESS')
     return True
 
@@ -127,5 +144,5 @@ def service(client_socket):
 
 
 if __name__ == '__main__':
-    load_data('user.sql')
+    # load_data('user.sql')
     server()
