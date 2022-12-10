@@ -1,9 +1,8 @@
 # SIMPLE P2P CHAT - CONVERSATION
 import tkinter, socket, threading
-from tkinter import DISABLED, VERTICAL, END, NORMAL
 from theme import *
-from tkinter.messagebox import askyesno, showerror
-from tkinter import filedialog
+from tkinter import messagebox
+from tkinter.messagebox import askyesno
 
 # Defining constant
 S_HOSTNAME = "localhost"
@@ -17,18 +16,18 @@ BYTESIZE = 1024
 
 class register_window:
     def __init__(self):
-        #define ADD FRIEND window
-        self.register_popup = tkinter.Tk()
-        self.register_popup.title("Register Account")
-        self.register_popup.geometry("300x450")
-        self.register_popup.resizable(0,0)
+        #define REGISTER window
+        self.register_page = tkinter.Tk()
+        self.register_page.title("Register Account")
+        self.register_page.geometry("300x450")
+        self.register_page.resizable(0, 0)
 
         #set window colors
-        self.register_popup.config(bg=darkgreen)
+        self.register_page.config(bg=darkgreen)
 
         #Define GUI Layout
         #Create Frames
-        self.register_frame = tkinter.Frame(self.register_popup, bg=darkgreen)
+        self.register_frame = tkinter.Frame(self.register_page, bg=darkgreen)
 
         self.register_frame.pack(pady=15)
 
@@ -42,7 +41,7 @@ class register_window:
         self.pw_entry = tkinter.Entry(self.register_frame, borderwidth=0, font=my_font, show='*')
         self.confirmpw_label = tkinter.Label(self.register_frame, text="Confirm Password:", font=my_font, fg=yellow, bg=darkgreen)
         self.confirmpw_entry = tkinter.Entry(self.register_frame, borderwidth=0, font=my_font, show='*')
-        self.register_button = tkinter.Button(self.register_frame, text="Sign Up", font=my_font, fg = white, bg=lightgreen, borderwidth=0, width=8, command=lambda: self.check_infor())
+        self.register_button = tkinter.Button(self.register_frame, text="Sign Up", font=my_font, fg = white, bg=lightgreen, borderwidth=0, width=8, command=lambda: self.check_fields())
 
         self.register_label.grid(row=0, column=0, padx=2, pady=10)
         self.uid_label.grid(row=1, column=0, pady=5, sticky='W')
@@ -55,13 +54,46 @@ class register_window:
         self.confirmpw_entry.grid(row=8, column=0, padx=2, pady=5)
         self.register_button.grid(row=9, column=0, padx=2, pady=15)
 
-    def check_infor(self):
-        pass
+        #Pop up confirm message when quit
+        self.register_page.protocol("WM_DELETE_WINDOW", self.close_confirm)
 
+    def check_fields(self):
+        if self.uid_entry.get() == "" or self.pw_entry == "":
+            messagebox.showwarning("Missing field(s)!", "Please fill in every field(s)!")
+        else:
+            self.register()
+
+    def register(self):
+        userId = self.uid_entry.get()
+        email = self.email_entry.get()
+        password = self.pw_entry.get()
+        c_password = self.confirmpw_entry.get()
+        if password != c_password:
+            messagebox.showwarning("Warning!", "The confirm password is not the same!")
+            return
+        server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            server_sock.connect(ACC_SERVER)
+        except:
+            messagebox.showerror("Register failed!", "Cannot connect to the server!")
+            return
+        server_sock.send(f"REGISTER {userId}:{email}:{password}".encode(ENCODER))
+        response = server_sock.recv(BYTESIZE).decode(ENCODER)
+        if response == 'FAIL':
+            messagebox.showerror("Register failed!", "User ID or Email already exists!")
+        else:
+            # frlist_window(userId, password, email, {}, server_sock)
+            self.register_page.quit()
+
+
+    def close_confirm(self):
+        confirm_reply = askyesno(title="Cancel register?", message="Do you want cancel your register?")
+        if confirm_reply:
+            login_window()
+            self.register_page.destroy()
 
     def render(self):
-        #Run the self.flist_page window's mainloop()
-        self.register_popup.mainloop()
+        self.register_page.mainloop()
 
 
 test = register_window()

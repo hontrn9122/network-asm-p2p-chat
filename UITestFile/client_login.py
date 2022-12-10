@@ -166,9 +166,9 @@ class frlist_window:
             login_window()
             self.flist_page.destroy()
 
-    def render(self):
-        #Run the self.flist_page window's mainloop()
-        self.flist_page.mainloop()
+    # def render(self):
+    #     #Run the self.flist_page window's mainloop()
+    #     self.flist_page.mainloop()
 
 #friendlist_window = frlist_window(onlinelist, offlinelist)
 #friendlist_window.render()

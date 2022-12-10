@@ -5,6 +5,8 @@ from tkinter import messagebox
 from theme import *
 from tkinter.messagebox import askyesno, showerror
 from tkinter import filedialog
+# database = sqlite3.connect('account.db')
+# c = database.cursor()
 # c.execute("""CREATE TABLE account (
 #     userid text,
 #     password text,
@@ -14,10 +16,10 @@ from tkinter import filedialog
 #     userid text,
 #     friendid text
 # )""")
-# c.execute("INSERT INTO account VAlUES ('huyhoang', '123456', 'huy@gmail.com')")
-# c.execute("INSERT INTO account VAlUES ('danh', '123789', 'danh@gmail.com')")
-# c.execute("INSERT INTO friend VAlUES ('huyhoang', 'danh')")
-# c.execute("INSERT INTO friend VAlUES ('danh', 'huyhoang')")
+# c.execute("INSERT INTO account VAlUES ('hoang', '123', 'hoang@gmail.com')")
+# # c.execute("INSERT INTO account VAlUES ('danh', '123789', 'danh@gmail.com')")
+# # c.execute("INSERT INTO friend VAlUES ('huyhoang', 'danh')")
+# # c.execute("INSERT INTO friend VAlUES ('danh', 'huyhoang')")
 # database.commit()
 # database.close()
 # Defining constant
