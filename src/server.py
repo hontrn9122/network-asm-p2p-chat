@@ -1,4 +1,4 @@
-import tkinter, socket, threading, os, json
+import tkinter, socket, threading, os, json, time
 from tkinter import *
 from tkinter import messagebox
 from theme import *
@@ -24,10 +24,10 @@ client_name_list = []
 #      friend_port[]
 #  }
 user_account_list = {
-    'huyhoang' : {
-        'email' : 'huy@gamil.com',
-        'password': '123456',
-        'friend_list': [],
+    "huyhoang": {
+        "email": "huy@gmail.com",
+        "password": "123456",
+        "friend_list": [],
     }
 }
 
@@ -36,8 +36,9 @@ server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_socket.bind((HOSTNAME, PORT))
 server_socket.listen()
 
+
 # Connecting client
-def connect_client():
+def server():
     while True:
         client_socket, client_address = server_socket.accept()
         client_thread = threading.Thread(target=verify_account, args=(client_socket, client_address,))
@@ -45,36 +46,45 @@ def connect_client():
 
 
 def verify_account(client_socket, client_address):
-    flag, message = client_socket.recv(BYTESIZE).decode(ENCODER)
+    flag, message = client_socket.recv(BYTESIZE).decode(ENCODER).split(' ')
     if flag == 'LOGIN':
-        userId, password = message.split(':')
-        if userId not in user_account_list:
-            client_socket.send('FAIL'.encode(ENCODER))
+        userid, password = message.split(':')
+        if login(client_socket, userid, password):
+            client_name_list.append(userid)
+            client_name_list.append(client_address)
+            service(client_socket)
+        else:
             return
-        elif password == user_account_list[userId]['password']:
-            client_socket.send(user_account_list[userId]['email'].encode(ENCODER))
-            friend_name = json.dumps(user_account_list[userId]['friend_list'])
-            if friend_name == '[]':
-                client_socket.send('NULL'.encode(ENCODER))
-            else:
-                client_socket.send(friend_name.encode(ENCODER))
-            client_socket.send('NULL'.encode(ENCODER))
-            client_socket.send('NULL'.encode(ENCODER))
-
-
-
     elif flag == "REGISTER":
         pass
     elif flag == "FORGOTPASS":
         pass
 
-# def recieve_message(client_socket):
-#     try:
-#         flag, message = client_socket.recv(BYTESIZE).decode(ENCODER)
-#         if flag == 'LOGIN':
-#             pass
-#         if
-#     except:
-#         pass
 
-connect_client()
+def login(client_socket, userid, password):
+    if userid not in user_account_list:
+        client_socket.send('FAIL'.encode(ENCODER))
+    elif password == user_account_list[userid]['password']:
+        client_socket.send('SUCCESS'.encode(ENCODER))
+        time.sleep(0.01)
+        client_socket.send((user_account_list[userid]['email']).encode(ENCODER))
+        time.sleep(0.01)
+        friend_name = json.dumps(user_account_list[userid]['friend_list'])
+        if friend_name == '[]':
+            client_socket.send('NULL'.encode(ENCODER))
+        else:
+            client_socket.send(friend_name.encode(ENCODER))
+        time.sleep(0.01)
+        client_socket.send('NULL'.encode(ENCODER))
+        time.sleep(0.01)
+        client_socket.send('NULL'.encode(ENCODER))
+        return True
+    return False
+
+
+def service():
+    pass
+
+
+if __name__ == '__main__':
+    server()

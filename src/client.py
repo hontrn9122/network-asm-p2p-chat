@@ -62,7 +62,7 @@ class login_window:
 
     def check_fields(self):
         if self.uid_entry.get() == "" or self.pw_entry == "":
-            self.pop_up("Missing field(s)!", "Please fill in every field(s)!")
+            messagebox.showwarning("Missing field(s)!", "Please fill in every field(s)!")
         else:
             self.login()
 
@@ -82,12 +82,17 @@ class login_window:
             messagebox.showwarning("Login failed!", "Incorrect User ID or Password!")
         else:
             email = server_sock.recv(BYTESIZE).decode(ENCODER)
+            print(email)
             friend_name = server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
+            print(friend_name)
             friend_ip = server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
+            print(friend_ip)
             friend_port = server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
+            print(friend_port)
             friend_list = {}
             for i in range(len(friend_name)):
                 friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
+
             frlist_window(myID, password, email, friend_list, server_sock)
             self.close()
 
@@ -319,8 +324,8 @@ class frlist_window:
             for friend in self.conversation_list:
                 self.conversation_list[friend].disconnect()
                 self.conversation_list.pop(friend)
-            self.flist_page.destroy()
             login_window()
+            self.flist_page.destroy()
 
 
 class conversation_window:
