@@ -5,8 +5,6 @@ from tkinter import messagebox
 from theme import *
 from tkinter.messagebox import askyesno, showerror
 from tkinter import filedialog
-database = sqlite3.connect("account.db")
-c = database.cursor()
 # c.execute("""CREATE TABLE account (
 #     userid text,
 #     password text,
@@ -63,14 +61,17 @@ def server():
 
 
 def verify_account(client_socket, client_address):
+    database = sqlite3.connect('account.db')
     flag, message = client_socket.recv(BYTESIZE).decode(ENCODER).split(' ')
     if flag == 'LOGIN':
         userid, password = message.split(':')
-        if login(client_socket, userid, password):
+        if login(client_socket, userid, password, database):
             client_name_list.append(userid)
             client_name_list.append(client_address)
             service(client_socket)
         else:
+            client_socket.close()
+            database.close()
             return
     elif flag == "REGISTER":
         pass
@@ -78,32 +79,41 @@ def verify_account(client_socket, client_address):
         pass
 
 
-def login(client_socket, userid, password):
-    user = c.execute("SELECT * FROM account WHERE userid=?", (userid,))
-    if not user:
-        client_socket.send('FAIL'.encode(ENCODER))
-    elif password == user[1]:
-        client_socket.send('SUCCESS'.encode(ENCODER))
-        time.sleep(0.01)
-        client_socket.send(user[2].encode(ENCODER))
-        time.sleep(0.01)
-        friends = c.execute("SELECT * FROM account WHERE userid=?", (userid,))
-        if friends:
+def login(client_socket, userid, password, database):
+    user = database.execute("SELECT * FROM account WHERE userid=?", (userid,))
+    user = user.fetchone()
+    if user:
+        print(user)
+        id, c_password, email = user
+        if password == c_password:
+            client_socket.send('SUCCESS'.encode(ENCODER))
+            time.sleep(0.01)
+            client_socket.send(email.encode(ENCODER))
+            time.sleep(0.01)
+            friends = database.execute("SELECT * FROM friend WHERE userid=?", (userid,))
             friend_name = ""
             friend_ip = ""
             friend_port = ""
             for friend in friends:
-                index = client_name_list.index(friend[1])
-                ip, port = client_socket_list[index]
+                ip = "NULL"
+                port = "NULL"
+                if friend[1] in client_name_list:
+                    index = client_name_list[friend[1]]
+                    ip, port = client_socket_list[index]
                 friend_name += friend[1] + " "
                 friend_ip += ip + " "
                 friend_port += port + " "
-            client_socket.send(friend_name.strip().encode())
-        return True
+            client_socket.send(friend_name.strip().encode(ENCODER))
+            time.sleep(0.01)
+            client_socket.send(friend_ip.strip().encode(ENCODER))
+            time.sleep(0.01)
+            client_socket.send(friend_port.strip().encode(ENCODER))
+            return True
+    client_socket.send('FAIL'.encode(ENCODER))
     return False
 
 
-def service():
+def service(client_socket):
     pass
 
 

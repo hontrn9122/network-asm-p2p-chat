@@ -92,7 +92,7 @@ class login_window:
             friend_list = {}
             for i in range(len(friend_name)):
                 friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
-
+            print(friend_list)
             frlist_window(myID, password, email, friend_list, server_sock)
             self.close()
 
@@ -103,7 +103,7 @@ class login_window:
         pass
 
     def close(self):
-        self.login_page.quit()
+        self.login_page.destroy()
 
     def render(self):
         self.login_page.mainloop()
