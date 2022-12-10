@@ -79,7 +79,7 @@ class forgotPassword_window:
         except:
             messagebox.showerror("Error!", "Cannot connect to the server!")
             return
-        server_sock.send(f"REGISTER {userId}:{email}:{password}".encode(ENCODER))
+        server_sock.send(f"FORGOTPASS {userId}:{email}:{password}".encode(ENCODER))
         response = server_sock.recv(BYTESIZE).decode(ENCODER)
         if response == 'FAIL_UserID':
             messagebox.showerror("Error!", "User ID does not exist!")
