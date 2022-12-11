@@ -13,6 +13,7 @@ BYTESIZE = 1024
 # Manage online client
 client_socket_list = []
 client_name_list = []
+friend_list = {}
 
 # Create a server socket using TCP protocol
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -40,7 +41,7 @@ def verify_account(client_socket, client_address):
         if login(client_socket, li_userid, li_password, database):
             client_name_list.append(li_userid)
             client_socket_list.append(client_address)
-            service(client_socket)
+            service(client_socket, li_userid, database)
         return
     elif flag == 'REGISTER':
         reg_userid, reg_email, reg_password = message.split(':')
@@ -48,14 +49,14 @@ def verify_account(client_socket, client_address):
                     reg_password, reg_email, database):
             client_name_list.append(reg_userid)
             client_socket_list.append(client_address)
-            service(client_socket)
+            service(client_socket, reg_userid, database)
         return
     elif flag == 'FORGOTPASS':
         fp_userid, fp_email, new_password = message.split(':')
         if forgot_pass(client_socket, fp_userid, new_password, fp_email, database):
             client_name_list.append(fp_userid)
             client_socket_list.append(client_address)
-            service(client_socket)
+            service(client_socket, fp_userid, database)
         return
 
 
@@ -89,7 +90,7 @@ def login(client_socket, li_userid, li_password, database):
 
             friends = get_friend(database, userid)
             friend_name, friend_ip, friend_port = get_friend_ids(friends)
-
+            friend_list[li_userid] = friend_name
             send_message(client_socket, friend_name)
             send_message(client_socket, friend_ip)
             send_message(client_socket, friend_port)
@@ -119,16 +120,53 @@ def forgot_pass(client_socket, fp_userid, new_password, fp_email, database):
     return True
 
 
+def friend_request():
+    pass
+
+
+def accept_friend_request():
+    pass
+
+
+def reject_friend_request():
+    pass
+
+
+def unfriend(userid, message, database):
+    temp = friend_list[userid].strip().split(' ')
+    if message in temp:
+        temp.remove(message)
+        temp = str.join(' ', temp)
+        friend_list[userid] = temp
+        if len(temp) != 0:
+            update_friend_list(database, userid, temp)
+        else:
+            delete_friend_list(database, userid)
+        unfriend(message, userid, database)
+        return True
+    return False
+
+
+def find_user():
+    pass
+
+
 def send_message(client_socket, message):
     time.sleep(0.01)
     client_socket.send(message.encode(ENCODER))
 
 
-def service(client_socket):
+def service(client_socket, userid, database):
     try:
         flag, message = client_socket.recv(BYTESIZE).decode(ENCODER).split(' ')
+        send_message(client_socket, 'FRIEND_LIST_UPDATE')
+
         if flag == 'UNFRIEND':
-            pass
+            if unfriend(userid, message, database):
+                send_message(client_socket, 'FRIEND_LIST_UPDATE')
+                send_message(client_socket, friend_list[userid])
+            else:
+                print('FAIL')
         elif flag == 'FIND':
             pass
         elif flag == 'REQUEST':

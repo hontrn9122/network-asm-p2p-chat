@@ -332,13 +332,12 @@ class frlist_window:
         return "NULL"
 
     def add_friend(self):
-        addFriend_window()
+        addFriend_window(self.flist_page, self.server_sock)
 
     def unfriend(self):
         chosen = self.my_listbox.curselection()
         if len(chosen) == 0:
-            showerror(title="No friend selected!",
-                      message=f"Please choose a firend to start chatting!")
+            showerror(title="No friend selected!",message=f"Please choose a firend to start chatting!")
         else:
             friend_ID = self.my_listbox.get(chosen[0])
             self.server_sock.send(f"UNFRIEND {friend_ID}".encode(ENCODER))
@@ -647,7 +646,12 @@ class register_window:
             messagebox.showerror("Register failed!", "User ID already exists!")
         elif response == 'FAIL_EMAIL':
             messagebox.showerror("Register failed!", "Email already exists!")
+        if response == 'FAIL_USERID':
+            messagebox.showerror("Register failed!", "User ID already exists!")
+        elif response == 'FAIL_EMAIL':
+            messagebox.showerror("Register failed!", "Email already exists!")
         else:
+            frlist_window(userId, password, email, {}, server_sock)
             frlist_window(userId, password, email, {}, server_sock)
             self.register_page.destroy()
 
@@ -724,6 +728,8 @@ class forgotPassword_window:
         response = server_sock.recv(BYTESIZE).decode(ENCODER)
         if response == 'FAIL':
             messagebox.showerror("Error!", "User ID or Email is uncorrected!")
+        if response == 'FAIL':
+            messagebox.showerror("Error!", "User ID or Email is uncorrected!")
         else:
             frlist_window(userId, password, email, {}, server_sock)
             self.forgotpw_page.destroy()
@@ -732,6 +738,7 @@ class forgotPassword_window:
         confirm_reply = askyesno(title="Cancel?", message="Do you want to cancel?")
         if confirm_reply:
             login_window()
+            self.forgotpw_page.destroy()
             self.forgotpw_page.destroy()
 
 

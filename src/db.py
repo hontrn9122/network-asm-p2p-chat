@@ -62,3 +62,15 @@ def update_password(database, userid, password):
     database.execute(
         f"UPDATE account SET password='{password}' WHERE userid='{userid}'")
     database.commit()
+
+
+def update_friend_list(database, userid, friend_list):
+    database.execute(
+        f"UPDATE friend SET friendid='{friend_list}' WHERE userid='{userid}'")
+    database.commit()
+
+
+def delete_friend_list(database, userid):
+    database.execute(
+        f"DELETE FROM friend WHERE userid='{userid}'")
+    database.commit()
