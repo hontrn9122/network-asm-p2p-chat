@@ -11,7 +11,7 @@ def load_data(filename):
     conn.close()
 
 
-def auth_login(database, userid):
+def get_user(database, userid):
     user = database.execute(
         f"SELECT * FROM account WHERE userid='{userid}'")
     user = user.fetchone()
@@ -21,9 +21,8 @@ def auth_login(database, userid):
 
 
 def get_friend(database, userid):
-    friends = database.execute(
-        f"SELECT * FROM friend WHERE userid='{userid}'")
-    if friends is not None:
+    friends = database.execute(f"SELECT * FROM friend WHERE userid='{userid}'")
+    if friends:
         return friends
     return None
 
@@ -64,13 +63,8 @@ def update_password(database, userid, password):
     database.commit()
 
 
-def update_friend_list(database, userid, friend_list):
-    database.execute(
-        f"UPDATE friend SET friendid='{friend_list}' WHERE userid='{userid}'")
+def delete_friend(database, userid, friendid):
+    database.execute(f"DELETE FROM friend WHERE userid='{userid}' AND friendid='{friendid}'")
     database.commit()
-
-
-def delete_friend_list(database, userid):
-    database.execute(
-        f"DELETE FROM friend WHERE userid='{userid}'")
+    database.execute(f"DELETE FROM friend WHERE userid='{friendid}' AND friendid='{userid}'")
     database.commit()

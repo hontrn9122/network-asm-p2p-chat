@@ -263,6 +263,7 @@ class frlist_window:
             self.connect_to_friend(friend_ID)
 
     def listen_server(self):
+        print("listen")
         while True:
             try:
                 server_mess = self.server_sock.recv(BYTESIZE).decode(ENCODER)
@@ -284,7 +285,6 @@ class frlist_window:
                     user_ID = self.server_sock.recv(BYTESIZE).decode(ENCODER)
                     if user_ID in self.friend_request:
                         self.friend_request.remove(user_ID)
-
             except:
                 showerror(title="Server connection lost!", message=f"Cannot connect to server!")
                 self.server_sock.close()
@@ -292,9 +292,9 @@ class frlist_window:
 
     def frlist_update(self):
         # global friend_list, server_sock
-        friend_name = self.server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
-        friend_ip = self.server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
-        friend_port = self.server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
+        friend_name = self.server_sock.recv(BYTESIZE).decode(ENCODER).strip().split(' ')
+        friend_ip = self.server_sock.recv(BYTESIZE).decode(ENCODER).strip().split(' ')
+        friend_port = self.server_sock.recv(BYTESIZE).decode(ENCODER).strip().split(' ')
         for i in range(len(friend_name)):
             self.friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
 
@@ -332,15 +332,22 @@ class frlist_window:
         return "NULL"
 
     def add_friend(self):
+        self.flist_page.quit()
         addFriend_window(self.flist_page, self.server_sock)
 
     def unfriend(self):
         chosen = self.my_listbox.curselection()
         if len(chosen) == 0:
-            showerror(title="No friend selected!",message=f"Please choose a firend to start chatting!")
+            showerror(title="No friend selected!", message=f"Please choose a friend to remove!")
         else:
             friend_ID = self.my_listbox.get(chosen[0])
             self.server_sock.send(f"UNFRIEND {friend_ID}".encode(ENCODER))
+            self.friend_list.pop(friend_ID)
+            if friend_ID in self.offlinelist:
+                self.offlinelist.remove(friend_ID)
+            if friend_ID in self.onlinelist:
+                self.onlinelist.remove(friend_ID)
+            self.update_displaylist(self.onlinelist, self.offlinelist)
 
     def show_friend_request(self):
         pass
@@ -556,14 +563,21 @@ class addFriend_window:
         self.input_entry = tkinter.Entry(
             self.input_frame, width=15, borderwidth=0, font=my_font)
         self.search_button = tkinter.Button(self.input_frame, text="Search", borderwidth=0,
-                                            width=5, font=my_font, bg=yellow, fg=black, command=lambda: self.find_user())
+                                            width=5, font=my_font, bg=yellow, fg=black, command=lambda: self.check_fields())
         self.input_entry.grid(row=0, column=0, padx=5, pady=5)
         self.search_button.grid(row=0, column=1, padx=5, pady=5)
+
+    def check_fields(self):
+        if self.input_entry.get() == "":
+            messagebox.showwarning("Missing field(s)!", "Please enter an UserId!")
+        else:
+            self.find_user()
 
     def find_user(self):
         user_id = self.input_entry.get()
         self.server_sock.send(f"FIND {user_id}".encode(ENCODER))
         response = self.server_sock.recv(BYTESIZE).decode(ENCODER)
+        print(response)
         if response == "FOUND_ONLINE":
             self.result.config(text=f"{user_id} is online")
             self.add_button.config(state=NORMAL)
@@ -709,6 +723,7 @@ class forgotPassword_window:
             messagebox.showwarning("Missing field(s)!", "Please fill in every field(s)!")
         else:
             self.forgotPassword()
+
 
     def forgotPassword(self):
         userId = self.uid_entry.get()

@@ -3,7 +3,6 @@ import threading
 import time
 from db import *
 
-
 # Defining constant
 HOSTNAME = 'localhost'
 PORT = 50000
@@ -13,7 +12,6 @@ BYTESIZE = 1024
 # Manage online client
 client_socket_list = []
 client_name_list = []
-friend_list = {}
 
 # Create a server socket using TCP protocol
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -26,8 +24,7 @@ def server():
     while True:
         client_socket, client_address = server_socket.accept()
         print(client_address)
-        client_thread = threading.Thread(
-            target=verify_account, args=(client_socket, client_address,))
+        client_thread = threading.Thread(target=verify_account, args=(client_socket, client_address,))
         client_thread.start()
     server_socket.close()
 
@@ -64,24 +61,21 @@ def get_friend_ids(friends):
     friend_name = ' '
     friend_ip = ' '
     friend_port = ' '
-
-    if friends is not None:
+    if friends:
         for friend in friends:
-            friend_ids = friend[1].split(' ')
-            for friend_id in friend_ids:
-                ip = 'NULL'
-                port = 'NULL'
-                if friend_id in client_name_list:
-                    index = client_name_list.index(friend_id)
-                    ip, port = client_socket_list[index]
-                friend_name += friend_id + ' '
-                friend_ip += str(ip) + ' '
-                friend_port += str(port) + ' '
+            ip = 'NULL'
+            port = 'NULL'
+            if friend[1] in client_name_list:
+                index = client_name_list.index(friend[1])
+                ip, port = client_socket_list[index]
+            friend_name += friend[1] + ' '
+            friend_ip += str(ip) + ' '
+            friend_port += str(port) + ' '
     return friend_name, friend_ip, friend_port
 
 
 def login(client_socket, li_userid, li_password, database):
-    user = auth_login(database, li_userid)
+    user = get_user(database, li_userid)
     if user:
         userid, password, email = user
         if password == li_password:
@@ -90,7 +84,6 @@ def login(client_socket, li_userid, li_password, database):
 
             friends = get_friend(database, userid)
             friend_name, friend_ip, friend_port = get_friend_ids(friends)
-            friend_list[li_userid] = friend_name
             send_message(client_socket, friend_name)
             send_message(client_socket, friend_ip)
             send_message(client_socket, friend_port)
@@ -132,21 +125,6 @@ def reject_friend_request():
     pass
 
 
-def unfriend(userid, message, database):
-    temp = friend_list[userid].strip().split(' ')
-    if message in temp:
-        temp.remove(message)
-        temp = str.join(' ', temp)
-        friend_list[userid] = temp
-        if len(temp) != 0:
-            update_friend_list(database, userid, temp)
-        else:
-            delete_friend_list(database, userid)
-        unfriend(message, userid, database)
-        return True
-    return False
-
-
 def find_user():
     pass
 
@@ -157,22 +135,27 @@ def send_message(client_socket, message):
 
 
 def service(client_socket, userid, database):
-    try:
-        flag, message = client_socket.recv(BYTESIZE).decode(ENCODER).split(' ')
-        send_message(client_socket, 'FRIEND_LIST_UPDATE')
-
-        if flag == 'UNFRIEND':
-            if unfriend(userid, message, database):
-                send_message(client_socket, 'FRIEND_LIST_UPDATE')
-                send_message(client_socket, friend_list[userid])
-            else:
-                print('FAIL')
-        elif flag == 'FIND':
-            pass
-        elif flag == 'REQUEST':
-            pass
-    except:
-        client_socket.close()
+    while True:
+        try:
+            flag, message = client_socket.recv(BYTESIZE).decode(ENCODER).split(' ')
+            print(flag, message)
+            if flag == 'UNFRIEND':
+                delete_friend(database, userid, message)
+            elif flag == 'FIND':
+                if get_user(database, message):
+                    if message in client_name_list:
+                        client_socket.send("FOUND_ONLINE".encode(ENCODER))
+                    else:
+                        client_socket.send("FOUND_OFFLINE".encode(ENCODER))
+                else:
+                    client_socket.send("NOTFOUND".encode(ENCODER))
+            elif flag == 'REQUEST':
+                pass
+        except:
+            print('close')
+            database.close()
+            client_socket.close()
+            break
 
 
 if __name__ == '__main__':
