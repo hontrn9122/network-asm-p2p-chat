@@ -99,20 +99,15 @@ class login_window:
                 "Login failed!", "Incorrect User ID or Password!")
         else:
             email = server_sock.recv(BYTESIZE).decode(ENCODER)
-            print(email)
             friend_name = server_sock.recv(
                 BYTESIZE).decode(ENCODER).strip().split(' ')
-            print(friend_name)
             friend_ip = server_sock.recv(BYTESIZE).decode(
                 ENCODER).strip().split(' ')
-            print(friend_ip)
             friend_port = server_sock.recv(
                 BYTESIZE).decode(ENCODER).strip().split(' ')
-            print(friend_port)
             friend_list = {}
             for i in range(len(friend_name)):
                 friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
-            print(friend_list)
             frlist_window(myID, password, email, friend_list, server_sock)
             self.close()
 
@@ -668,12 +663,12 @@ class register_window:
         server_sock.send(
             f"REGISTER {userId}:{email}:{password}".encode(ENCODER))
         response = server_sock.recv(BYTESIZE).decode(ENCODER)
-        if response == 'FAIL':
-            messagebox.showerror("Register failed!",
-                                 "User ID or Email already exists!")
+        if response == 'FAIL_USERID':
+            messagebox.showerror("Register failed!", "User ID already exists!")
+        elif response == 'FAIL_EMAIL':
+            messagebox.showerror("Register failed!", "Email already exists!")
         else:
-            fr_list = {}
-            frlist_window(userId, password, email, fr_list, server_sock)
+            frlist_window(userId, password, email, {}, server_sock)
             self.register_page.destroy()
 
     def close_confirm(self):
@@ -761,10 +756,8 @@ class forgotPassword_window:
         server_sock.send(
             f"FORGOTPASS {userId}:{email}:{password}".encode(ENCODER))
         response = server_sock.recv(BYTESIZE).decode(ENCODER)
-        if response == 'FAIL_USERID':
-            messagebox.showerror("Error!", "User ID does not exist!")
-        elif response == 'FAIL_EMAIL':
-            messagebox.showerror("Error!", "Email is Uncorrected!")
+        if response == 'FAIL':
+            messagebox.showerror("Error!", "User ID or Email is uncorrected!")
         else:
             frlist_window(userId, password, email, {}, server_sock)
             self.forgotpw_page.destroy()
@@ -774,7 +767,7 @@ class forgotPassword_window:
             title="Cancel?", message="Do you want to cancel?")
         if confirm_reply:
             login_window()
-            self.register_page.destroy()
+            self.forgotpw_page.destroy()
 
 
 class friendRequest_window:
