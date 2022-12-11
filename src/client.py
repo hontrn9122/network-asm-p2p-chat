@@ -8,6 +8,7 @@ from tkinter import messagebox
 from theme import *
 from tkinter.messagebox import askyesno, showerror
 from tkinter import filedialog
+from random import randint
 
 # Defining constant
 S_HOSTNAME = "localhost"
@@ -285,18 +286,15 @@ class frlist_window:
                         self.friend_request.remove(user_ID)
 
             except:
-                showerror(title="Server connection lost!",
-                          message=f"Cannot connect to server!")
+                showerror(title="Server connection lost!", message=f"Cannot connect to server!")
                 self.server_sock.close()
                 break
 
     def frlist_update(self):
         # global friend_list, server_sock
-        friend_name = self.server_sock.recv(
-            BYTESIZE).decode(ENCODER).split(' ')
+        friend_name = self.server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
         friend_ip = self.server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
-        friend_port = self.server_sock.recv(
-            BYTESIZE).decode(ENCODER).split(' ')
+        friend_port = self.server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
         for i in range(len(friend_name)):
             self.friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
 

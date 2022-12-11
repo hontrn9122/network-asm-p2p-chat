@@ -24,9 +24,11 @@ server_socket.listen()
 def server():
     while True:
         client_socket, client_address = server_socket.accept()
+        print(client_address)
         client_thread = threading.Thread(
             target=verify_account, args=(client_socket, client_address,))
         client_thread.start()
+    server_socket.close()
 
 
 def verify_account(client_socket, client_address):
