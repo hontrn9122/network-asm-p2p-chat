@@ -148,6 +148,7 @@ def unfriend(userid, message, database):
             update_friend_list(database, userid, temp)
         else:
             delete_friend_list(database, userid)
+        unfriend(message, userid, database)
         return True
     return False
 
