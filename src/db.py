@@ -11,17 +11,11 @@ def load_data(filename):
     conn.close()
 
 
-def register_account(database, userid, password, email):
-    database.execute(
-        f"INSERT INTO account VALUES ({userid}, {password}, {email})")
-    database.commit()
-
-
 def auth_login(database, userid):
     user = database.execute(
         f"SELECT * FROM account WHERE userid='{userid}'")
     user = user.fetchone()
-    if user is not None:
+    if user:
         return user
     return None
 
@@ -34,26 +28,26 @@ def get_friend(database, userid):
     return None
 
 
-def check_info(database, userid, email):
+def check_email(database, email):
     user = database.execute(
-        f"SELECT * FROM account WHERE userid='{userid}' OR email='{email}'")
-    if user.fetchone() == None:
-        return False
-    return True
+        f"SELECT * FROM account WHERE email='{email}'")
+    if user.fetchone():
+        return True
+    return False
 
 
 def check_id(database, userid):
     user = database.execute(
         f"SELECT * FROM account WHERE userid='{userid}'")
-    if user.fetchone() == None:
+    if user.fetchone():
         return True
     return False
 
 
-def check_email(database, userid, email):
+def check_infor(database, userid, email):
     user = database.execute(
         f"SELECT * FROM account WHERE userid='{userid}' AND email='{email}'")
-    if user.fetchone() == None:
+    if user.fetchone():
         return True
     return False
 

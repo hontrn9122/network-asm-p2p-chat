@@ -1,33 +1,9 @@
-import tkinter
 import socket
 import threading
-import os
-import json
 import time
-import sqlite3
 from db import *
-from tkinter import *
-from tkinter import messagebox
-from theme import *
-from tkinter.messagebox import askyesno, showerror
-from tkinter import filedialog
-# database = sqlite3.connect('account.db')
-# c = database.cursor()
-# c.execute("""CREATE TABLE account (
-#     userid text,
-#     password text,
-#     email text
-# )""")
-# c.execute("""CREATE TABLE friend (
-#     userid text,
-#     friendid text
-# )""")
-# c.execute("INSERT INTO account VAlUES ('hoang', '123', 'hoang@gmail.com')")
-# # c.execute("INSERT INTO account VAlUES ('danh', '123789', 'danh@gmail.com')")
-# # c.execute("INSERT INTO friend VAlUES ('huyhoang', 'danh')")
-# # c.execute("INSERT INTO friend VAlUES ('danh', 'huyhoang')")
-# database.commit()
-# database.close()
+
+
 # Defining constant
 HOSTNAME = 'localhost'
 PORT = 50000
@@ -103,7 +79,7 @@ def get_friend_ids(friends):
 
 def login(client_socket, li_userid, li_password, database):
     user = auth_login(database, li_userid)
-    if user is not None:
+    if user:
         userid, password, email = user
         if password == li_password:
             send_message(client_socket, 'SUCCESS')
@@ -121,8 +97,11 @@ def login(client_socket, li_userid, li_password, database):
 
 
 def register(client_socket, userid, password, email, database):
-    if check_info(database, userid, email):
-        send_message(client_socket, 'FAIL')
+    if check_id(database, userid):
+        send_message(client_socket, 'FAIL_USERID')
+        return False
+    if check_email(database, email):
+        send_message(client_socket, 'FAIL_EMAIL')
         return False
     register_account(database, userid, password, email)
     send_message(client_socket, 'SUCCESS')
@@ -130,11 +109,8 @@ def register(client_socket, userid, password, email, database):
 
 
 def forgot_pass(client_socket, fp_userid, new_password, fp_email, database):
-    if check_id(database, fp_userid):
-        send_message(client_socket, 'FAIL_USERID')
-        return False
-    if check_email(database, fp_userid, fp_email):
-        send_message(client_socket, 'FAIL_EMAIL')
+    if not check_infor(database, fp_userid, fp_email):
+        send_message(client_socket, 'FAIL')
         return False
     update_password(database, fp_userid, new_password)
     send_message(client_socket, 'SUCCESS')
@@ -160,5 +136,5 @@ def service(client_socket):
 
 
 if __name__ == '__main__':
-    # load_data('user.sql')
+    load_data('user.sql')
     server()
