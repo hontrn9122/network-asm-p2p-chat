@@ -338,13 +338,12 @@ class frlist_window:
         return "NULL"
 
     def add_friend(self):
-        addFriend_window()
+        addFriend_window(self.flist_page, self.server_sock)
 
     def unfriend(self):
         chosen = self.my_listbox.curselection()
         if len(chosen) == 0:
-            showerror(title="No friend selected!",
-                      message=f"Please choose a firend to start chatting!")
+            showerror(title="No friend selected!",message=f"Please choose a firend to start chatting!")
         else:
             friend_ID = self.my_listbox.get(chosen[0])
             self.server_sock.send(f"UNFRIEND {friend_ID}".encode(ENCODER))
