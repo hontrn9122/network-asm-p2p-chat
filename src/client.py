@@ -283,7 +283,6 @@ class frlist_window:
                 print(server_mess)
                 if server_mess == "FRIEND_LIST_UPDATE":
                     self.frlist_update()
-                    self.update_friend_status()
                 elif server_mess == "FRIEND_REQUEST":
                     user_ID = self.server_sock.recv(BYTESIZE).decode(ENCODER)
                     if user_ID not in self.friend_request:
@@ -318,6 +317,7 @@ class frlist_window:
         friend_port = self.server_sock.recv(BYTESIZE).decode(ENCODER).strip().split(' ')
         for i in range(len(friend_name)):
             self.friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
+        self.update_friend_status()
 
 
     def listen_to_friend(self):
@@ -613,7 +613,6 @@ class addFriend_window:
     def request_friend(self):
         self.add_button.config(state=DISABLED)
         user_id = self.input_entry.get()
-        print(user_id)
         self.server_sock.send(f"REQUEST {user_id}".encode(ENCODER))
         self.set_message("")
         self.result.config(text="<result>")

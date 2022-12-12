@@ -150,8 +150,14 @@ def service(client_socket, userid, database):
                 send_message(client_socket, friend_name)
                 send_message(client_socket, friend_ip)
                 send_message(client_socket, friend_port)
-                # client_socket.send("DEL_TIMEOUT_REQUEST".encode(ENCODER))
-                # send_message(client_socket, message)
+                client_socket.send("DEL_TIMEOUT_REQUEST".encode(ENCODER))
+                send_message(client_socket, message)
+            elif flag == 'REFUSE_FRIEND':
+                tmp_socket = client_socket_list[client_name_list.index(message)]
+                send_message(tmp_socket, 'REQUEST_DENIED')
+                send_message(tmp_socket, userid)
+                client_socket.send("DEL_TIMEOUT_REQUEST".encode(ENCODER))
+                send_message(client_socket, message)
         except:
             print(f'close + {userid}')
             database.close()
