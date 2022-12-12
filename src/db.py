@@ -1,4 +1,5 @@
 import sqlite3
+import json
 
 
 def load_data(filename):
@@ -62,7 +63,20 @@ def update_password(database, userid, password):
 
 
 def delete_friend(database, userid, friendid):
-    database.execute(f"DELETE FROM friend WHERE userid='{userid}' AND friendid='{friendid}'")
+    database.execute(
+        f"DELETE FROM friend WHERE userid='{userid}' AND friendid='{friendid}'")
     database.commit()
-    database.execute(f"DELETE FROM friend WHERE userid='{friendid}' AND friendid='{userid}'")
+    database.execute(
+        f"DELETE FROM friend WHERE userid='{friendid}' AND friendid='{userid}'")
+    database.commit()
+
+
+def add_friend(database, userid, friendid):
+    database.execute(
+        f"INSERT INTO friend VALUES('{userid}','{friendid}')"
+    )
+    database.commit()
+    database.execute(
+        f"INSERT INTO friend VALUES('{friendid}','{userid}')"
+    )
     database.commit()

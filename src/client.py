@@ -77,7 +77,8 @@ class login_window:
 
     def check_fields(self):
         if self.uid_entry.get() == "" or self.pw_entry == "":
-            messagebox.showwarning("Missing field(s)!", "Please fill in every field(s)!")
+            messagebox.showwarning("Missing field(s)!",
+                                   "Please fill in every field(s)!")
         else:
             self.login()
 
@@ -95,12 +96,16 @@ class login_window:
         server_sock.send(f"LOGIN {myID}:{password}".encode(ENCODER))
         response = server_sock.recv(BYTESIZE).decode(ENCODER)
         if response == "FAIL":
-            messagebox.showwarning("Login failed!", "Incorrect User ID or Password!")
+            messagebox.showwarning(
+                "Login failed!", "Incorrect User ID or Password!")
         else:
             email = server_sock.recv(BYTESIZE).decode(ENCODER)
-            friend_name = server_sock.recv(BYTESIZE).decode(ENCODER).strip().split(' ')
-            friend_ip = server_sock.recv(BYTESIZE).decode(ENCODER).strip().split(' ')
-            friend_port = server_sock.recv(BYTESIZE).decode(ENCODER).strip().split(' ')
+            friend_name = server_sock.recv(
+                BYTESIZE).decode(ENCODER).strip().split(' ')
+            friend_ip = server_sock.recv(BYTESIZE).decode(
+                ENCODER).strip().split(' ')
+            friend_port = server_sock.recv(
+                BYTESIZE).decode(ENCODER).strip().split(' ')
             friend_list = {}
             for i in range(len(friend_name)):
                 friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
@@ -114,7 +119,6 @@ class login_window:
     def forgot_password(self):
         forgotPassword_window()
         self.close()
-
 
     def close(self):
         self.login_page.destroy()
@@ -134,7 +138,6 @@ class frlist_window:
         self.friend_request = []
         self.add_fr = None
         self.fr_request = None
-
 
         # Separate friend into online and offline list
         self.onlinelist = []
@@ -232,7 +235,6 @@ class frlist_window:
         connections_thread = threading.Thread(target=self.listen_to_friend)
         connections_thread.start()
 
-
     def search_check(self, event):
         typed = self.input_entry.get()
         if typed == '':
@@ -296,21 +298,21 @@ class frlist_window:
                     self.add_fr.set_message(server_mess)
                 elif server_mess == "NOTFOUND":
                     self.add_fr.set_message(server_mess)
-                elif server_mess == "FRIEND_REQUEST_LIST":
-                    list = self.server_sock.recv(BYTESIZE).decode(ENCODER)
-                    self.fr_request.update_friendlist(list)
-
 
             except:
-                showerror(title="Server connection lost!", message=f"Cannot connect to server!")
+                showerror(title="Server connection lost!",
+                          message=f"Cannot connect to server!")
                 self.server_sock.close()
                 break
 
     def frlist_update(self):
         # global friend_list, server_sock
-        friend_name = self.server_sock.recv(BYTESIZE).decode(ENCODER).strip().split(' ')
-        friend_ip = self.server_sock.recv(BYTESIZE).decode(ENCODER).strip().split(' ')
-        friend_port = self.server_sock.recv(BYTESIZE).decode(ENCODER).strip().split(' ')
+        friend_name = self.server_sock.recv(
+            BYTESIZE).decode(ENCODER).strip().split(' ')
+        friend_ip = self.server_sock.recv(
+            BYTESIZE).decode(ENCODER).strip().split(' ')
+        friend_port = self.server_sock.recv(
+            BYTESIZE).decode(ENCODER).strip().split(' ')
         for i in range(len(friend_name)):
             self.friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
 
@@ -353,7 +355,8 @@ class frlist_window:
     def unfriend(self):
         chosen = self.my_listbox.curselection()
         if len(chosen) == 0:
-            showerror(title="No friend selected!", message=f"Please choose a friend to remove!")
+            showerror(title="No friend selected!",
+                      message=f"Please choose a friend to remove!")
         else:
             friend_ID = self.my_listbox.get(chosen[0])
             self.server_sock.send(f"UNFRIEND {friend_ID}".encode(ENCODER))
@@ -365,8 +368,8 @@ class frlist_window:
             self.update_displaylist(self.onlinelist, self.offlinelist)
 
     def show_friend_request(self):
-        self.server_sock.send("GET_FRIEND_REQUEST".encode(ENCODER))
-        self.fr_request = friendRequest_window(self.flist_page, self.server_sock)
+        friendRequest_window(
+            self.flist_page, self.server_sock, self.friend_request)
 
     def create_chatroom(self):
         pass
@@ -586,7 +589,8 @@ class addFriend_window:
 
     def check_fields(self):
         if self.input_entry.get() == "":
-            messagebox.showwarning("Missing field(s)!", "Please enter an UserId!")
+            messagebox.showwarning("Missing field(s)!",
+                                   "Please enter an UserId!")
         else:
             self.find_user()
 
@@ -607,37 +611,47 @@ class addFriend_window:
 
     def request_friend(self):
         self.add_button.config(state=DISABLED)
-        user_id = self.result.cget('text')
+        user_id = self.input_entry.get()
         self.server_sock.send(f"REQUEST {user_id}".encode(ENCODER))
 
 
 class register_window:
     def __init__(self):
-        #define REGISTER window
+        # define REGISTER window
         self.register_page = tkinter.Tk()
         self.register_page.title("Register Account")
         self.register_page.geometry("300x450")
         self.register_page.resizable(0, 0)
 
-        #set window colors
+        # set window colors
         self.register_page.config(bg=darkgreen)
 
-        #Define GUI Layout
-        #Create Frames
+        # Define GUI Layout
+        # Create Frames
         self.register_frame = tkinter.Frame(self.register_page, bg=darkgreen)
         self.register_frame.pack(pady=15)
 
-        #Input Frame Layout
-        self.register_label = tkinter.Label(self.register_frame, text="Register", font=("haveltica", 18), fg=yellow, bg=darkgreen)
-        self.uid_label = tkinter.Label(self.register_frame, text="User ID:", font=my_font, fg=yellow, bg=darkgreen)
-        self.uid_entry = tkinter.Entry(self.register_frame, borderwidth=0, font=my_font)
-        self.email_label = tkinter.Label(self.register_frame, text="Email:", font=my_font, fg=yellow, bg=darkgreen)
-        self.email_entry = tkinter.Entry(self.register_frame, borderwidth=0, font=my_font)
-        self.pw_label = tkinter.Label(self.register_frame, text="Password:", font=my_font, fg=yellow, bg=darkgreen)
-        self.pw_entry = tkinter.Entry(self.register_frame, borderwidth=0, font=my_font, show='*')
-        self.confirmpw_label = tkinter.Label(self.register_frame, text="Confirm Password:", font=my_font, fg=yellow, bg=darkgreen)
-        self.confirmpw_entry = tkinter.Entry(self.register_frame, borderwidth=0, font=my_font, show='*')
-        self.register_button = tkinter.Button(self.register_frame, text="Sign Up", font=my_font, fg = white, bg=lightgreen, borderwidth=0, width=8, command=lambda: self.check_fields())
+        # Input Frame Layout
+        self.register_label = tkinter.Label(self.register_frame, text="Register", font=(
+            "haveltica", 18), fg=yellow, bg=darkgreen)
+        self.uid_label = tkinter.Label(
+            self.register_frame, text="User ID:", font=my_font, fg=yellow, bg=darkgreen)
+        self.uid_entry = tkinter.Entry(
+            self.register_frame, borderwidth=0, font=my_font)
+        self.email_label = tkinter.Label(
+            self.register_frame, text="Email:", font=my_font, fg=yellow, bg=darkgreen)
+        self.email_entry = tkinter.Entry(
+            self.register_frame, borderwidth=0, font=my_font)
+        self.pw_label = tkinter.Label(
+            self.register_frame, text="Password:", font=my_font, fg=yellow, bg=darkgreen)
+        self.pw_entry = tkinter.Entry(
+            self.register_frame, borderwidth=0, font=my_font, show='*')
+        self.confirmpw_label = tkinter.Label(
+            self.register_frame, text="Confirm Password:", font=my_font, fg=yellow, bg=darkgreen)
+        self.confirmpw_entry = tkinter.Entry(
+            self.register_frame, borderwidth=0, font=my_font, show='*')
+        self.register_button = tkinter.Button(self.register_frame, text="Sign Up", font=my_font,
+                                              fg=white, bg=lightgreen, borderwidth=0, width=8, command=lambda: self.check_fields())
 
         self.register_label.grid(row=0, column=0, padx=2, pady=10)
         self.uid_label.grid(row=1, column=0, pady=5, sticky='W')
@@ -650,12 +664,13 @@ class register_window:
         self.confirmpw_entry.grid(row=8, column=0, padx=2, pady=5)
         self.register_button.grid(row=9, column=0, padx=2, pady=15)
 
-        #Pop up confirm message when quit
+        # Pop up confirm message when quit
         self.register_page.protocol("WM_DELETE_WINDOW", self.close_confirm)
 
     def check_fields(self):
         if self.uid_entry.get() == "" or self.pw_entry == "":
-            messagebox.showwarning("Missing field(s)!", "Please fill in every field(s)!")
+            messagebox.showwarning("Missing field(s)!",
+                                   "Please fill in every field(s)!")
         else:
             self.register()
 
@@ -665,15 +680,18 @@ class register_window:
         password = self.pw_entry.get()
         c_password = self.confirmpw_entry.get()
         if password != c_password:
-            messagebox.showwarning("Warning!", "The confirm password is not the same!")
+            messagebox.showwarning(
+                "Warning!", "The confirm password is not the same!")
             return
         server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             server_sock.connect(ACC_SERVER)
         except:
-            messagebox.showerror("Register failed!", "Cannot connect to the server!")
+            messagebox.showerror("Register failed!",
+                                 "Cannot connect to the server!")
             return
-        server_sock.send(f"REGISTER {userId}:{email}:{password}".encode(ENCODER))
+        server_sock.send(
+            f"REGISTER {userId}:{email}:{password}".encode(ENCODER))
         response = server_sock.recv(BYTESIZE).decode(ENCODER)
         if response == 'FAIL_USERID':
             messagebox.showerror("Register failed!", "User ID already exists!")
@@ -689,7 +707,8 @@ class register_window:
             self.register_page.destroy()
 
     def close_confirm(self):
-        confirm_reply = askyesno(title="Cancel register?", message="Do you want cancel your register?")
+        confirm_reply = askyesno(
+            title="Cancel register?", message="Do you want cancel your register?")
         if confirm_reply:
             login_window()
             self.register_page.destroy()
@@ -697,7 +716,7 @@ class register_window:
 
 class forgotPassword_window:
     def __init__(self):
-        #define FORGOT PASSWORD window
+        # define FORGOT PASSWORD window
         self.forgotpw_page = tkinter.Tk()
         self.forgotpw_page.title("Forgot Password")
         self.forgotpw_page.geometry("300x450")
@@ -712,16 +731,26 @@ class forgotPassword_window:
         self.forgotpw_frame.pack(pady=15)
 
         # Input Frame Layout
-        self.forgotpw_label = tkinter.Label(self.forgotpw_frame, text="Forgot Password", font=("haveltica", 18), fg=yellow, bg=darkgreen)
-        self.uid_label = tkinter.Label(self.forgotpw_frame, text="User ID:", font=my_font, fg=yellow, bg=darkgreen)
-        self.uid_entry = tkinter.Entry(self.forgotpw_frame, borderwidth=0, font=my_font)
-        self.email_label = tkinter.Label(self.forgotpw_frame, text="Email:", font=my_font, fg=yellow, bg=darkgreen)
-        self.email_entry = tkinter.Entry(self.forgotpw_frame, borderwidth=0, font=my_font)
-        self.pw_label = tkinter.Label(self.forgotpw_frame, text="New Password:", font=my_font, fg=yellow, bg=darkgreen)
-        self.pw_entry = tkinter.Entry(self.forgotpw_frame, borderwidth=0, font=my_font, show='*')
-        self.confirmpw_label = tkinter.Label(self.forgotpw_frame, text="Confirm Password:", font=my_font, fg=yellow, bg=darkgreen)
-        self.confirmpw_entry = tkinter.Entry(self.forgotpw_frame, borderwidth=0, font=my_font, show='*')
-        self.confirm_button = tkinter.Button(self.forgotpw_frame, text="Confirm", font=my_font, fg=white, bg=lightgreen, borderwidth=0, width=8, command=lambda: self.check_fields())
+        self.forgotpw_label = tkinter.Label(self.forgotpw_frame, text="Forgot Password", font=(
+            "haveltica", 18), fg=yellow, bg=darkgreen)
+        self.uid_label = tkinter.Label(
+            self.forgotpw_frame, text="User ID:", font=my_font, fg=yellow, bg=darkgreen)
+        self.uid_entry = tkinter.Entry(
+            self.forgotpw_frame, borderwidth=0, font=my_font)
+        self.email_label = tkinter.Label(
+            self.forgotpw_frame, text="Email:", font=my_font, fg=yellow, bg=darkgreen)
+        self.email_entry = tkinter.Entry(
+            self.forgotpw_frame, borderwidth=0, font=my_font)
+        self.pw_label = tkinter.Label(
+            self.forgotpw_frame, text="New Password:", font=my_font, fg=yellow, bg=darkgreen)
+        self.pw_entry = tkinter.Entry(
+            self.forgotpw_frame, borderwidth=0, font=my_font, show='*')
+        self.confirmpw_label = tkinter.Label(
+            self.forgotpw_frame, text="Confirm Password:", font=my_font, fg=yellow, bg=darkgreen)
+        self.confirmpw_entry = tkinter.Entry(
+            self.forgotpw_frame, borderwidth=0, font=my_font, show='*')
+        self.confirm_button = tkinter.Button(self.forgotpw_frame, text="Confirm", font=my_font,
+                                             fg=white, bg=lightgreen, borderwidth=0, width=8, command=lambda: self.check_fields())
 
         self.forgotpw_label.grid(row=0, column=0, padx=2, pady=10)
         self.uid_label.grid(row=1, column=0, pady=5, sticky='W')
@@ -739,10 +768,10 @@ class forgotPassword_window:
 
     def check_fields(self):
         if self.uid_entry.get() == "" or self.pw_entry == "":
-            messagebox.showwarning("Missing field(s)!", "Please fill in every field(s)!")
+            messagebox.showwarning("Missing field(s)!",
+                                   "Please fill in every field(s)!")
         else:
             self.forgotPassword()
-
 
     def forgotPassword(self):
         userId = self.uid_entry.get()
@@ -750,7 +779,8 @@ class forgotPassword_window:
         password = self.pw_entry.get()
         c_password = self.confirmpw_entry.get()
         if password != c_password:
-            messagebox.showwarning("Warning!", "The confirm password is not the same!")
+            messagebox.showwarning(
+                "Warning!", "The confirm password is not the same!")
             return
         server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
@@ -758,7 +788,8 @@ class forgotPassword_window:
         except:
             messagebox.showerror("Error!", "Cannot connect to the server!")
             return
-        server_sock.send(f"FORGOTPASS {userId}:{email}:{password}".encode(ENCODER))
+        server_sock.send(
+            f"FORGOTPASS {userId}:{email}:{password}".encode(ENCODER))
         response = server_sock.recv(BYTESIZE).decode(ENCODER)
         if response == 'FAIL':
             messagebox.showerror("Error!", "User ID or Email is uncorrected!")
@@ -769,7 +800,8 @@ class forgotPassword_window:
             self.forgotpw_page.destroy()
 
     def close_confirm(self):
-        confirm_reply = askyesno(title="Cancel?", message="Do you want to cancel?")
+        confirm_reply = askyesno(
+            title="Cancel?", message="Do you want to cancel?")
         if confirm_reply:
             login_window()
             self.forgotpw_page.destroy()
@@ -777,8 +809,8 @@ class forgotPassword_window:
 
 
 class friendRequest_window:
-    def __init__(self, root: Tk, server_sock: socket):
-        self.friendrequest_list = []
+    def __init__(self, root: Tk, server_sock: socket, friend_request):
+        self.friendrequest_list = friend_request
         self.server_sock = server_sock
 
         # define FRIEND LIST window
@@ -792,9 +824,11 @@ class friendRequest_window:
 
         # Define GUI Layout
         # Create Frames
-        self.label_frame = tkinter.Frame(self.friendrequest_popup, bg=darkgreen)
+        self.label_frame = tkinter.Frame(
+            self.friendrequest_popup, bg=darkgreen)
         self.list_frame = tkinter.Frame(self.friendrequest_popup, bg=darkgreen)
-        self.button_frame = tkinter.Frame(self.friendrequest_popup, bg=darkgreen)
+        self.button_frame = tkinter.Frame(
+            self.friendrequest_popup, bg=darkgreen)
 
         self.label_frame.pack(pady=5)
         self.list_frame.pack()
@@ -838,7 +872,8 @@ class friendRequest_window:
             showerror(title="No friend selected!",
                       message=f"Please choose a friend !")
         else:
-            pass
+            self.server_sock.send(
+                f'ACCEPT_FRIEND {self.my_listbox.get(chosen[0])}'.encode(ENCODER))
 
     def refuse(self):
         chosen = self.my_listbox.curselection()
@@ -846,7 +881,8 @@ class friendRequest_window:
             showerror(title="No friend selected!",
                       message=f"Please choose a friend!")
         else:
-            pass
+            self.server_sock.send(
+                f'REFUSE_FRIEND {self.my_listbox.get(chosen[0])}'.encode(ENCODER))
 
 
 class chatroom_window:

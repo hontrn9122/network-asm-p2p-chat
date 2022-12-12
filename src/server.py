@@ -10,8 +10,9 @@ ENCODER = 'utf-8'
 BYTESIZE = 1024
 
 # Manage online client
-client_socket_list = []
+client_address_list = []
 client_name_list = []
+client_socket_list = []
 
 # Create a server socket using TCP protocol
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -24,7 +25,8 @@ def server():
     while True:
         client_socket, client_address = server_socket.accept()
         print(client_address)
-        client_thread = threading.Thread(target=verify_account, args=(client_socket, client_address,))
+        client_thread = threading.Thread(
+            target=verify_account, args=(client_socket, client_address,))
         client_thread.start()
     server_socket.close()
 
@@ -37,7 +39,8 @@ def verify_account(client_socket, client_address):
         li_userid, li_password = message.split(':')
         if login(client_socket, li_userid, li_password, database):
             client_name_list.append(li_userid)
-            client_socket_list.append(client_address)
+            client_address_list.append(client_address)
+            client_socket_list.append(client_socket)
             service(client_socket, li_userid, database)
         return
     elif flag == 'REGISTER':
@@ -45,14 +48,16 @@ def verify_account(client_socket, client_address):
         if register(client_socket, reg_userid,
                     reg_password, reg_email, database):
             client_name_list.append(reg_userid)
-            client_socket_list.append(client_address)
+            client_address_list.append(client_address)
+            client_socket_list.append(client_socket)
             service(client_socket, reg_userid, database)
         return
     elif flag == 'FORGOTPASS':
         fp_userid, fp_email, new_password = message.split(':')
         if forgot_pass(client_socket, fp_userid, new_password, fp_email, database):
             client_name_list.append(fp_userid)
-            client_socket_list.append(client_address)
+            client_address_list.append(client_address)
+            client_socket_list.append(client_socket)
             service(client_socket, fp_userid, database)
         return
 
@@ -67,7 +72,7 @@ def get_friend_ids(friends):
             port = 'NULL'
             if friend[1] in client_name_list:
                 index = client_name_list.index(friend[1])
-                ip, port = client_socket_list[index]
+                ip, port = client_address_list[index]
             friend_name += friend[1] + ' '
             friend_ip += str(ip) + ' '
             friend_port += str(port) + ' '
@@ -113,19 +118,11 @@ def forgot_pass(client_socket, fp_userid, new_password, fp_email, database):
     return True
 
 
-def friend_request():
-    pass
-
-
 def accept_friend_request():
     pass
 
 
 def reject_friend_request():
-    pass
-
-
-def find_user():
     pass
 
 
@@ -137,7 +134,8 @@ def send_message(client_socket, message):
 def service(client_socket, userid, database):
     while True:
         try:
-            flag, message = client_socket.recv(BYTESIZE).decode(ENCODER).split(' ')
+            flag, message = client_socket.recv(
+                BYTESIZE).decode(ENCODER).split(' ')
             print(flag, message)
             if flag == 'UNFRIEND':
                 delete_friend(database, userid, message)
@@ -150,7 +148,23 @@ def service(client_socket, userid, database):
                 else:
                     client_socket.send("NOTFOUND".encode(ENCODER))
             elif flag == 'REQUEST':
+                temp_index = client_name_list.index(message)
+                print(temp_index)
+                temp_socket = client_socket_list[temp_index]
+                send_message(temp_socket, 'FRIEND_REQUEST')
+                send_message(temp_socket, userid)
+            elif flag == 'ACCEPT_FRIEND':
+                add_friend(database, userid, message)
+                send_message(client_socket, 'FRIEND_LIST_UPDATE')
+
+                friends = get_friend(database, userid)
+                friend_name, friend_ip, friend_port = get_friend_ids(friends)
+                send_message(client_socket, friend_name)
+                send_message(client_socket, friend_ip)
+                send_message(client_socket, friend_port)
+            elif flag == 'REFUSE_FRIEND':
                 pass
+
         except:
             print('close')
             database.close()
