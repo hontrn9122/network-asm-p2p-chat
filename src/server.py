@@ -117,22 +117,6 @@ def forgot_pass(client_socket, fp_userid, new_password, fp_email, database):
     return True
 
 
-def friend_request():
-    pass
-
-
-def accept_friend_request():
-    pass
-
-
-def reject_friend_request():
-    pass
-
-
-def find_user():
-    pass
-
-
 def send_message(client_socket, message):
     time.sleep(0.01)
     client_socket.send(message.encode(ENCODER))
@@ -146,7 +130,8 @@ def service(client_socket, userid, database):
             if flag == 'UNFRIEND':
                 delete_friend(database, userid, message)
             elif flag == 'FIND':
-                if get_user(database, message):
+                user = get_user(database, message)
+                if user and user[0] != userid:
                     if message in client_name_list:
                         client_socket.send("FOUND_ONLINE".encode(ENCODER))
                     else:
@@ -155,10 +140,20 @@ def service(client_socket, userid, database):
                     client_socket.send("NOTFOUND".encode(ENCODER))
             elif flag == 'REQUEST':
                 tmp_socket = client_socket_list[client_name_list.index(message)]
-
-
+                send_message(tmp_socket, 'FRIEND_REQUEST')
+                send_message(tmp_socket, userid)
+            elif flag == 'ACCEPT_FRIEND':
+                add_friend(database, userid, message)
+                client_socket.send("FRIEND_LIST_UPDATE".encode(ENCODER))
+                friends = get_friend(database, userid)
+                friend_name, friend_ip, friend_port = get_friend_ids(friends)
+                send_message(client_socket, friend_name)
+                send_message(client_socket, friend_ip)
+                send_message(client_socket, friend_port)
+                # client_socket.send("DEL_TIMEOUT_REQUEST".encode(ENCODER))
+                # send_message(client_socket, message)
         except:
-            print('close')
+            print(f'close + {userid}')
             database.close()
             client_socket.close()
             break

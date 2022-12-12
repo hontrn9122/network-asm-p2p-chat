@@ -66,3 +66,10 @@ def delete_friend(database, userid, friendid):
     database.commit()
     database.execute(f"DELETE FROM friend WHERE userid='{friendid}' AND friendid='{userid}'")
     database.commit()
+
+
+def add_friend(database, userid, friendid):
+    database.execute(f"INSERT INTO friend VALUES('{userid}', '{friendid}')")
+    database.commit()
+    database.execute(f"INSERT INTO friend VALUES('{friendid}', '{userid}')")
+    database.commit()

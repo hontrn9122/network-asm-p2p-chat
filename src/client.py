@@ -139,11 +139,7 @@ class frlist_window:
         # Separate friend into online and offline list
         self.onlinelist = []
         self.offlinelist = []
-        for userid in self.friend_list:
-            if friend_list[userid] == ('NULL', 'NULL'):
-                self.offlinelist.append(userid)
-            else:
-                self.onlinelist.append(userid)
+
 
         # define FRIEND LIST window
         self.flist_page = tkinter.Tk()
@@ -219,6 +215,9 @@ class frlist_window:
                                           borderwidth=0, font=my_font, bg=yellow, fg=black, command=lambda: self.start_conversation())
         self.unfriend_button.grid(row=0, column=0, padx=5, pady=5)
         self.chat_button.grid(row=0, column=1, padx=5, pady=5)
+
+        # Create display list
+        self.update_friend_status()
         self.update_displaylist(self.onlinelist, self.offlinelist)
 
         # Pop up confirm message when quit
@@ -248,6 +247,15 @@ class frlist_window:
                     offline_tmplist.append(user)
             self.update_displaylist(online_tmplist, offline_tmplist)
 
+    def update_friend_status(self):
+        self.onlinelist.clear()
+        self.offlinelist.clear()
+        for userid in self.friend_list:
+            if self.friend_list[userid] == ('NULL', 'NULL'):
+                self.offlinelist.append(userid)
+            else:
+                self.onlinelist.append(userid)
+
     def update_displaylist(self, onlinelist, offlinelist):
         self.my_listbox.delete(0, END)
         for user in onlinelist:
@@ -264,6 +272,7 @@ class frlist_window:
                       message=f"Please choose a friend to start chatting!")
         else:
             friend_ID = self.my_listbox.get(chosen[0])
+            print(self.my_listbox.get(chosen[0]))
             self.connect_to_friend(friend_ID)
 
     def listen_server(self):
@@ -274,6 +283,7 @@ class frlist_window:
                 print(server_mess)
                 if server_mess == "FRIEND_LIST_UPDATE":
                     self.frlist_update()
+                    self.update_friend_status()
                 elif server_mess == "FRIEND_REQUEST":
                     user_ID = self.server_sock.recv(BYTESIZE).decode(ENCODER)
                     if user_ID not in self.friend_request:
@@ -296,8 +306,6 @@ class frlist_window:
                     self.add_fr.set_message(server_mess)
                 elif server_mess == "NOTFOUND":
                     self.add_fr.set_message(server_mess)
-
-
             except:
                 showerror(title="Server connection lost!", message=f"Cannot connect to server!")
                 self.server_sock.close()
@@ -310,6 +318,7 @@ class frlist_window:
         friend_port = self.server_sock.recv(BYTESIZE).decode(ENCODER).strip().split(' ')
         for i in range(len(friend_name)):
             self.friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
+
 
     def listen_to_friend(self):
         # global listen_sock, conver_win_list
@@ -603,8 +612,12 @@ class addFriend_window:
 
     def request_friend(self):
         self.add_button.config(state=DISABLED)
-        user_id = self.result.cget('text')
+        user_id = self.input_entry.get()
+        print(user_id)
         self.server_sock.send(f"REQUEST {user_id}".encode(ENCODER))
+        self.set_message("")
+        self.result.config(text="<result>")
+        self.add_button.config(state=DISABLED)
 
 
 class register_window:
@@ -834,7 +847,10 @@ class friendRequest_window:
             showerror(title="No friend selected!",
                       message=f"Please choose a friend !")
         else:
-            pass
+            userid = self.my_listbox.get(chosen[0])
+            self.server_sock.send(f"ACCEPT_FRIEND {userid}".encode(ENCODER))
+            self.friendrequest_list.remove(userid)
+            self.update_displaylist()
 
     def refuse(self):
         chosen = self.my_listbox.curselection()
@@ -842,8 +858,10 @@ class friendRequest_window:
             showerror(title="No friend selected!",
                       message=f"Please choose a friend!")
         else:
-            pass
-
+            userid = self.my_listbox.get(chosen[0])
+            self.server_sock.send(f"REFUSE_FRIEND {userid}".encode(ENCODER))
+            self.friendrequest_list.remove(userid)
+            self.update_displaylist()
 
 class chatroom_window:
     pass
