@@ -3,12 +3,12 @@ import tkinter
 import socket
 import threading
 import os
+import time
 from tkinter import *
 from tkinter import messagebox
 from theme import *
 from tkinter.messagebox import askyesno, showerror
 from tkinter import filedialog
-from random import randint
 
 # Defining constant
 S_HOSTNAME = "localhost"
@@ -132,6 +132,9 @@ class frlist_window:
         self.server_sock = server_sock
         self.conversation_list = dict
         self.friend_request = []
+        self.add_fr = None
+        self.fr_request = None
+
 
         # Separate friend into online and offline list
         self.onlinelist = []
@@ -229,6 +232,7 @@ class frlist_window:
         connections_thread = threading.Thread(target=self.listen_to_friend)
         connections_thread.start()
 
+
     def search_check(self, event):
         typed = self.input_entry.get()
         if typed == '':
@@ -257,7 +261,7 @@ class frlist_window:
         chosen = self.my_listbox.curselection()
         if len(chosen) == 0:
             showerror(title="No friend selected!",
-                      message=f"Please choose a firend to start chatting!")
+                      message=f"Please choose a friend to start chatting!")
         else:
             friend_ID = self.my_listbox.get(chosen[0])
             self.connect_to_friend(friend_ID)
@@ -267,24 +271,36 @@ class frlist_window:
         while True:
             try:
                 server_mess = self.server_sock.recv(BYTESIZE).decode(ENCODER)
-                if (server_mess == "FRIEND_LIST_UPDATE"):
+                print(server_mess)
+                if server_mess == "FRIEND_LIST_UPDATE":
                     self.frlist_update()
-                elif (server_mess == "FRIEND_REQUEST"):
+                elif server_mess == "FRIEND_REQUEST":
                     user_ID = self.server_sock.recv(BYTESIZE).decode(ENCODER)
                     if user_ID not in self.friend_request:
                         self.friend_request.append(user_ID)
-                elif (server_mess == "REQUEST_TIMEOUT"):
+                elif server_mess == "REQUEST_TIMEOUT":
                     user_ID = self.server_sock.recv(BYTESIZE).decode(ENCODER)
                     messagebox.showinfo(
                         "Friend request timeout!", f"Friend request to {user_ID} has timed out!")
-                elif (server_mess == "REQUEST_DENIED"):
+                elif server_mess == "REQUEST_DENIED":
                     user_ID = self.server_sock.recv(BYTESIZE).decode(ENCODER)
                     messagebox.showinfo(
                         "Friend request denied!", f"Friend request to {user_ID} has been denied!")
-                elif (server_mess == "DEL_TIMEOUT_REQUEST"):
+                elif server_mess == "DEL_TIMEOUT_REQUEST":
                     user_ID = self.server_sock.recv(BYTESIZE).decode(ENCODER)
                     if user_ID in self.friend_request:
                         self.friend_request.remove(user_ID)
+                elif server_mess == "FOUND_ONLINE":
+                    self.add_fr.set_message(server_mess)
+                elif server_mess == "FOUND_OFFLINE":
+                    self.add_fr.set_message(server_mess)
+                elif server_mess == "NOTFOUND":
+                    self.add_fr.set_message(server_mess)
+                elif server_mess == "FRIEND_REQUEST_LIST":
+                    list = self.server_sock.recv(BYTESIZE).decode(ENCODER)
+                    self.fr_request.update_friendlist(list)
+
+
             except:
                 showerror(title="Server connection lost!", message=f"Cannot connect to server!")
                 self.server_sock.close()
@@ -332,8 +348,7 @@ class frlist_window:
         return "NULL"
 
     def add_friend(self):
-        self.flist_page.quit()
-        addFriend_window(self.flist_page, self.server_sock)
+        self.add_fr = addFriend_window(self.flist_page, self.server_sock, "")
 
     def unfriend(self):
         chosen = self.my_listbox.curselection()
@@ -350,7 +365,8 @@ class frlist_window:
             self.update_displaylist(self.onlinelist, self.offlinelist)
 
     def show_friend_request(self):
-        pass
+        self.server_sock.send("GET_FRIEND_REQUEST".encode(ENCODER))
+        self.fr_request = friendRequest_window(self.flist_page, self.server_sock)
 
     def create_chatroom(self):
         pass
@@ -531,8 +547,9 @@ class conversation_window:
 
 
 class addFriend_window:
-    def __init__(self, root: Tk, server_sock: socket):
+    def __init__(self, root: Tk, server_sock: socket, message: str):
         self.server_sock = server_sock
+        self.message = message
 
         # define ADD FRIEND window
         self.addfriend_popup = tkinter.Toplevel(root)
@@ -553,7 +570,7 @@ class addFriend_window:
 
         # Output Frame Layout
         self.result = tkinter.Label(
-            self.output_frame, text="<result>", font=my_font, fg=white, bg=darkgreen, width=10)
+            self.output_frame, text="<result>", font=my_font, fg=white, bg=darkgreen, width=20)
         self.add_button = tkinter.Button(self.output_frame, text="Send friend request", borderwidth=0, width=15,
                                          font=my_font_small, bg=yellow, fg=black, state=DISABLED, command=lambda: self.request_friend())
         self.result.grid(row=0, column=0, padx=5, pady=5)
@@ -573,17 +590,19 @@ class addFriend_window:
         else:
             self.find_user()
 
+    def set_message(self, message):
+        self.message = message
+
     def find_user(self):
         user_id = self.input_entry.get()
         self.server_sock.send(f"FIND {user_id}".encode(ENCODER))
-        response = self.server_sock.recv(BYTESIZE).decode(ENCODER)
-        print(response)
-        if response == "FOUND_ONLINE":
+        time.sleep(0.01)
+        if self.message == "FOUND_ONLINE":
             self.result.config(text=f"{user_id} is online")
             self.add_button.config(state=NORMAL)
-        elif response == "FOUND_OFFLINE":
+        elif self.message == "FOUND_OFFLINE":
             self.result.config(text=f"{user_id} is offline")
-        else:
+        elif self.message == "NOTFOUND":
             self.result.config(text="Not found!")
 
     def request_friend(self):
@@ -758,7 +777,76 @@ class forgotPassword_window:
 
 
 class friendRequest_window:
-    pass
+    def __init__(self, root: Tk, server_sock: socket):
+        self.friendrequest_list = []
+        self.server_sock = server_sock
+
+        # define FRIEND LIST window
+        self.friendrequest_popup = tkinter.Toplevel(root)
+        self.friendrequest_popup.title("Friend Request")
+        self.friendrequest_popup.geometry("300x350")
+        self.friendrequest_popup.resizable(0, 0)
+
+        # set window colors
+        self.friendrequest_popup.config(bg=darkgreen)
+
+        # Define GUI Layout
+        # Create Frames
+        self.label_frame = tkinter.Frame(self.friendrequest_popup, bg=darkgreen)
+        self.list_frame = tkinter.Frame(self.friendrequest_popup, bg=darkgreen)
+        self.button_frame = tkinter.Frame(self.friendrequest_popup, bg=darkgreen)
+
+        self.label_frame.pack(pady=5)
+        self.list_frame.pack()
+        self.button_frame.pack(pady=5)
+
+        # Label Frame Layout
+        self.label_test = tkinter.Label(self.label_frame, text="Friend Request", font=('haveltica', 18), fg=yellow,
+                                        bg=darkgreen, width=20)
+        self.label_test.grid(row=0, column=0, padx=5, pady=5)
+
+        # List Frame Layout
+        self.my_scrollbar = tkinter.Scrollbar(self.list_frame, orient=VERTICAL)
+        self.my_listbox = tkinter.Listbox(self.list_frame, height=10, width=25, borderwidth=0, bg=white, fg=darkgreen,
+                                          font=my_font, yscrollcommand=self.my_scrollbar.set)
+        self.my_scrollbar.config(command=self.my_listbox.yview)
+        self.my_listbox.grid(row=0, column=0)
+        self.my_scrollbar.grid(row=0, column=1, sticky="NS")
+
+        # Button Frame Layout
+        self.accept_button = tkinter.Button(self.button_frame, text="Accept", width=10, borderwidth=0, font=my_font,
+                                            bg=yellow, fg=black, command=lambda: self.accept())
+        self.refuse_button = tkinter.Button(self.button_frame, text="Refuse", width=10, borderwidth=0, font=my_font,
+                                            bg=yellow, fg=black, command=lambda: self.refuse())
+        self.accept_button.grid(row=0, column=0, padx=5, pady=5)
+        self.refuse_button.grid(row=0, column=1, padx=5, pady=5)
+        self.update_displaylist()
+
+    def update_friendlist(self, list):
+        self.friendrequest_list = list
+        self.update_displaylist()
+
+    def update_displaylist(self):
+        self.my_listbox.delete(0, END)
+        for user in self.friendrequest_list:
+            self.my_listbox.insert(0, user)
+            self.my_listbox.itemconfig(0, {'fg': 'green2'})
+
+    def accept(self):
+        chosen = self.my_listbox.curselection()
+        if len(chosen) == 0:
+            showerror(title="No friend selected!",
+                      message=f"Please choose a friend !")
+        else:
+            pass
+
+    def refuse(self):
+        chosen = self.my_listbox.curselection()
+        if len(chosen) == 0:
+            showerror(title="No friend selected!",
+                      message=f"Please choose a friend!")
+        else:
+            pass
 
 
 class chatroom_window:

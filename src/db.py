@@ -15,9 +15,7 @@ def get_user(database, userid):
     user = database.execute(
         f"SELECT * FROM account WHERE userid='{userid}'")
     user = user.fetchone()
-    if user:
-        return user
-    return None
+    return user
 
 
 def get_friend(database, userid):
