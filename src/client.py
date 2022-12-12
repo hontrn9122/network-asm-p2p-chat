@@ -296,9 +296,6 @@ class frlist_window:
                     self.add_fr.set_message(server_mess)
                 elif server_mess == "NOTFOUND":
                     self.add_fr.set_message(server_mess)
-                elif server_mess == "FRIEND_REQUEST_LIST":
-                    list = self.server_sock.recv(BYTESIZE).decode(ENCODER)
-                    self.fr_request.update_friendlist(list)
 
 
             except:
@@ -365,8 +362,7 @@ class frlist_window:
             self.update_displaylist(self.onlinelist, self.offlinelist)
 
     def show_friend_request(self):
-        self.server_sock.send("GET_FRIEND_REQUEST".encode(ENCODER))
-        self.fr_request = friendRequest_window(self.flist_page, self.server_sock)
+        friendRequest_window(self.flist_page, self.server_sock, self.friend_request)
 
     def create_chatroom(self):
         pass
@@ -777,8 +773,8 @@ class forgotPassword_window:
 
 
 class friendRequest_window:
-    def __init__(self, root: Tk, server_sock: socket):
-        self.friendrequest_list = []
+    def __init__(self, root: Tk, server_sock: socket, friend_request):
+        self.friendrequest_list = friend_request
         self.server_sock = server_sock
 
         # define FRIEND LIST window

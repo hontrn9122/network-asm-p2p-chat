@@ -11,6 +11,7 @@ BYTESIZE = 1024
 
 # Manage online client
 client_socket_list = []
+client_address_list = []
 client_name_list = []
 
 # Create a server socket using TCP protocol
@@ -37,7 +38,8 @@ def verify_account(client_socket, client_address):
         li_userid, li_password = message.split(':')
         if login(client_socket, li_userid, li_password, database):
             client_name_list.append(li_userid)
-            client_socket_list.append(client_address)
+            client_address_list.append(client_address)
+            client_socket_list.append(client_socket)
             service(client_socket, li_userid, database)
         return
     elif flag == 'REGISTER':
@@ -45,14 +47,16 @@ def verify_account(client_socket, client_address):
         if register(client_socket, reg_userid,
                     reg_password, reg_email, database):
             client_name_list.append(reg_userid)
-            client_socket_list.append(client_address)
+            client_address_list.append(client_address)
+            client_socket_list.append(client_socket)
             service(client_socket, reg_userid, database)
         return
     elif flag == 'FORGOTPASS':
         fp_userid, fp_email, new_password = message.split(':')
         if forgot_pass(client_socket, fp_userid, new_password, fp_email, database):
             client_name_list.append(fp_userid)
-            client_socket_list.append(client_address)
+            client_address_list.append(client_address)
+            client_socket_list.append(client_socket)
             service(client_socket, fp_userid, database)
         return
 
@@ -67,7 +71,7 @@ def get_friend_ids(friends):
             port = 'NULL'
             if friend[1] in client_name_list:
                 index = client_name_list.index(friend[1])
-                ip, port = client_socket_list[index]
+                ip, port = client_address_list[index]
             friend_name += friend[1] + ' '
             friend_ip += str(ip) + ' '
             friend_port += str(port) + ' '
@@ -150,7 +154,9 @@ def service(client_socket, userid, database):
                 else:
                     client_socket.send("NOTFOUND".encode(ENCODER))
             elif flag == 'REQUEST':
-                pass
+                tmp_socket = client_socket_list[client_name_list.index(message)]
+
+
         except:
             print('close')
             database.close()
