@@ -130,7 +130,7 @@ class frlist_window:
         self.email = email
         self.friend_list = friend_list
         self.server_sock = server_sock
-        self.conversation_list = dict
+        self.conversation_list = {}
         self.friend_request = []
         self.add_fr = None
         self.fr_request = None
@@ -319,7 +319,6 @@ class frlist_window:
             self.friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
         self.update_friend_status()
 
-
     def listen_to_friend(self):
         # global listen_sock, conver_win_list
         listen_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -384,7 +383,9 @@ class frlist_window:
                 self.conversation_list[friend].disconnect()
                 self.conversation_list.pop(friend)
             login_window()
+            self.server_sock.close()
             self.flist_page.destroy()
+
 
 
 class conversation_window:

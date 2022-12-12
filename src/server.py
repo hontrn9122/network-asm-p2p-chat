@@ -41,7 +41,9 @@ def verify_account(client_socket, client_address):
             client_address_list.append(client_address)
             client_socket_list.append(client_socket)
             service(client_socket, li_userid, database)
-        return
+        else:
+            database.close()
+            client_socket.close()
     elif flag == 'REGISTER':
         reg_userid, reg_email, reg_password = message.split(':')
         if register(client_socket, reg_userid,
@@ -50,7 +52,9 @@ def verify_account(client_socket, client_address):
             client_address_list.append(client_address)
             client_socket_list.append(client_socket)
             service(client_socket, reg_userid, database)
-        return
+        else:
+            database.close()
+            client_socket.close()
     elif flag == 'FORGOTPASS':
         fp_userid, fp_email, new_password = message.split(':')
         if forgot_pass(client_socket, fp_userid, new_password, fp_email, database):
@@ -58,7 +62,9 @@ def verify_account(client_socket, client_address):
             client_address_list.append(client_address)
             client_socket_list.append(client_socket)
             service(client_socket, fp_userid, database)
-        return
+        else:
+            database.close()
+            client_socket.close()
 
 
 def get_friend_ids(friends):
@@ -159,6 +165,10 @@ def service(client_socket, userid, database):
                 client_socket.send("DEL_TIMEOUT_REQUEST".encode(ENCODER))
                 send_message(client_socket, message)
         except:
+            index = client_socket_list.index(client_socket)
+            client_socket_list.remove(client_socket)
+            client_name_list.remove(client_name_list[index])
+            client_address_list.remove(client_address_list[index])
             print(f'close + {userid}')
             database.close()
             client_socket.close()
