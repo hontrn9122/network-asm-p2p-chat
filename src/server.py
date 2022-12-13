@@ -68,10 +68,11 @@ def verify_account(client_socket, client_address):
 
 
 def get_friend_ids(friends):
-    friend_name = ' '
-    friend_ip = ' '
-    friend_port = ' '
-    if friends:
+    friend_name = ''
+    friend_ip = ''
+    friend_port = ''
+    friends = friends.fetchall()
+    if len(friends) != 0:
         for friend in friends:
             ip = 'NULL'
             port = 'NULL'
@@ -81,7 +82,11 @@ def get_friend_ids(friends):
             friend_name += friend[1] + ' '
             friend_ip += str(ip) + ' '
             friend_port += str(port) + ' '
-    return friend_name, friend_ip, friend_port
+    else:
+        friend_name = "NULL"
+        friend_ip = "NULL"
+        friend_port = "NULL"
+    return friend_name.strip(), friend_ip.strip(), friend_port.strip()
 
 
 def login(client_socket, li_userid, li_password, database):

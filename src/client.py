@@ -98,12 +98,13 @@ class login_window:
             messagebox.showwarning("Login failed!", "Incorrect User ID or Password!")
         else:
             email = server_sock.recv(BYTESIZE).decode(ENCODER)
-            friend_name = server_sock.recv(BYTESIZE).decode(ENCODER).strip().split(' ')
-            friend_ip = server_sock.recv(BYTESIZE).decode(ENCODER).strip().split(' ')
-            friend_port = server_sock.recv(BYTESIZE).decode(ENCODER).strip().split(' ')
+            friend_name = server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
+            friend_ip = server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
+            friend_port = server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
             friend_list = {}
-            for i in range(len(friend_name)):
-                friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
+            if friend_name[0] != "NULL":
+                for i in range(len(friend_name)):
+                    friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
             frlist_window(myID, password, email, friend_list, server_sock)
             self.close()
 
@@ -231,6 +232,8 @@ class frlist_window:
         connections_thread = threading.Thread(target=self.listen_to_friend)
         connections_thread.start()
 
+        # Bind friend list update event
+        self.flist_page.bind('<<UpdateFriendList>>', self.handle_update_friend_list)
 
     def search_check(self, event):
         typed = self.input_entry.get()
@@ -258,12 +261,12 @@ class frlist_window:
 
     def update_displaylist(self, onlinelist, offlinelist):
         self.my_listbox.delete(0, END)
-        for user in onlinelist:
-            self.my_listbox.insert(0, user)
-            self.my_listbox.itemconfig(0, {'fg': 'green2'})
         for user in offlinelist:
             self.my_listbox.insert(END, user)
             self.my_listbox.itemconfig(END, {'fg': 'gray63'})
+        for user in onlinelist:
+            self.my_listbox.insert(0, user)
+            self.my_listbox.itemconfig(0, {'fg': 'green2'})
 
     def start_conversation(self):
         chosen = self.my_listbox.curselection()
@@ -275,14 +278,17 @@ class frlist_window:
             print(self.my_listbox.get(chosen[0]))
             self.connect_to_friend(friend_ID)
 
+    def handle_update_friend_list(self, event):
+        self.frlist_update()
+        self.update_displaylist(self.onlinelist, self.offlinelist)
     def listen_server(self):
         print("listen")
         while True:
-            try:
+            # try:
                 server_mess = self.server_sock.recv(BYTESIZE).decode(ENCODER)
                 print(server_mess)
                 if server_mess == "FRIEND_LIST_UPDATE":
-                    self.frlist_update()
+                    self.flist_page.event_generate('<<UpdateFriendList>>', when = 'tail' )
                 elif server_mess == "FRIEND_REQUEST":
                     user_ID = self.server_sock.recv(BYTESIZE).decode(ENCODER)
                     if user_ID not in self.friend_request:
@@ -305,18 +311,19 @@ class frlist_window:
                     self.add_fr.set_message(server_mess)
                 elif server_mess == "NOTFOUND":
                     self.add_fr.set_message(server_mess)
-            except:
-                showerror(title="Server connection lost!", message=f"Cannot connect to server!")
-                self.server_sock.close()
-                break
+            # except:
+            #     showerror(title="Server connection lost!", message=f"Cannot connect to server!")
+            #     self.server_sock.close()
+            #     break
 
     def frlist_update(self):
         # global friend_list, server_sock
-        friend_name = self.server_sock.recv(BYTESIZE).decode(ENCODER).strip().split(' ')
-        friend_ip = self.server_sock.recv(BYTESIZE).decode(ENCODER).strip().split(' ')
-        friend_port = self.server_sock.recv(BYTESIZE).decode(ENCODER).strip().split(' ')
-        for i in range(len(friend_name)):
-            self.friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
+        friend_name = self.server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
+        friend_ip = self.server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
+        friend_port = self.server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
+        if friend_name[0] != "NULL":
+            for i in range(len(friend_name)):
+                self.friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
         self.update_friend_status()
 
     def listen_to_friend(self):
@@ -460,6 +467,7 @@ class conversation_window:
         # Create a thread for listening incomming messages
         self.receive_thread = threading.Thread(target=self.recieve_message)
         self.receive_thread.start()
+
 
     def add_to_list(self, message):
         self.my_listbox.insert(END, message)
