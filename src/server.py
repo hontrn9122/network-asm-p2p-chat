@@ -163,10 +163,14 @@ def service(client_socket, userid, database):
                 send_message(client_socket, friend_ip)
                 send_message(client_socket, friend_port)
             elif flag == 'REFUSE_FRIEND':
-                pass
+                temp_index = client_name_list.index(message)
+                temp_socket = client_socket_list[temp_index]
+                send_message(temp_socket, 'REQUEST_DENIED')
+                send_message(temp_socket, userid)
 
         except:
-            print('close')
+            send_message(client_socket, 'FRIEND_LIST_UPDATE')
+
             database.close()
             client_socket.close()
             break
