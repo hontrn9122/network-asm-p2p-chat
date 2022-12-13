@@ -20,6 +20,17 @@ server_socket.bind((HOSTNAME, PORT))
 server_socket.listen()
 
 
+def update(database):
+    for client in client_name_list:
+        friends = get_friend(database, client)
+        friend_name, friend_ip, friend_port = get_friend_ids(friends)
+        client_socket = client_socket_list.index(client)
+        send_message(client_socket, 'FRIEND_LIST_UPDATE')
+        send_message(client_socket, friend_name)
+        send_message(client_socket, friend_ip)
+        send_message(client_socket, friend_port)
+
+
 # Connecting client
 def server():
     while True:
