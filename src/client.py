@@ -1,4 +1,5 @@
 # Client Chat App
+# import sys
 import tkinter
 import socket
 import threading
@@ -15,7 +16,7 @@ S_HOSTNAME = "localhost"
 S_IP = socket.gethostbyname(S_HOSTNAME)
 S_PORT = 50000
 ACC_SERVER = (S_IP, S_PORT)
-MY_PORT = 50001
+MY_PORT = 0
 LISTEN_ADDRESS = ('localhost', MY_PORT)
 ENCODER = 'utf-8'
 BYTESIZE = 1024
@@ -27,7 +28,7 @@ class login_window:
         self.login_page = tkinter.Tk()
         self.login_page.title("Simple P2P Chat application - Login")
         self.login_page.geometry("600x300")
-        self.login_page.resizable(0, 0)
+        self.login_page.resizable(None, None)
 
         # set windows colors
         self.login_page.config(bg=darkgreen)
@@ -69,6 +70,9 @@ class login_window:
         self.register_button.grid(row=4, column=1, padx=10, pady=5)
         self.forgotpw_button.grid(row=4, column=2, padx=10, pady=5)
 
+        #
+        self.login_page.protocol("WM_DELETE_WINDOW", self.close)
+
     def show_passwd(self, entry_field):
         if entry_field.cget('show') == '*':
             entry_field.config(show='')
@@ -104,9 +108,20 @@ class login_window:
             friend_list = {}
             if friend_name[0] != "NULL":
                 for i in range(len(friend_name)):
-                    friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
-            frlist_window(myID, password, email, friend_list, server_sock)
+                    if friend_ip[i] == "NULL":
+                        friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
+                    else:
+                        friend_list[friend_name[i]] = (friend_ip[i], int(friend_port[i]))
+
+            # Send listen address to server
+            listen_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            listen_sock.bind(LISTEN_ADDRESS)
+            listen_sock.listen()
+            listen_sock_address = listen_sock.getsockname()
+            server_sock.send(f"{str(listen_sock_address[0])}:{str(listen_sock_address[1])}".encode(ENCODER))
+            print(f"{myID} is listening on {listen_sock_address}")
             self.close()
+            frlist_window(myID, password, email, friend_list, server_sock, listen_sock)
 
     def register(self):
         register_window()
@@ -116,7 +131,6 @@ class login_window:
         forgotPassword_window()
         self.close()
 
-
     def close(self):
         self.login_page.destroy()
 
@@ -125,28 +139,27 @@ class login_window:
 
 
 class frlist_window:
-    def __init__(self, myID: str, password: str, email: str, friend_list: dict, server_sock: socket):
+    def __init__(self, myID: str, password: str, email: str, friend_list: dict, server_sock: socket, listen_sock: socket):
         self.myID = myID
         self.password = password
         self.email = email
         self.friend_list = friend_list
         self.server_sock = server_sock
+        self.listen_sock = listen_sock
         self.conversation_list = {}
         self.friend_request = []
         self.add_fr = None
         self.fr_request = None
 
-
         # Separate friend into online and offline list
         self.onlinelist = []
         self.offlinelist = []
-
 
         # define FRIEND LIST window
         self.flist_page = tkinter.Tk()
         self.flist_page.title("Simple P2P Chat application - Friends List")
         self.flist_page.geometry("700x800")
-        self.flist_page.resizable(0, 0)
+        self.flist_page.resizable(None, None)
 
         # set window colors
         self.flist_page.config(bg=darkgreen)
@@ -225,15 +238,14 @@ class frlist_window:
         self.flist_page.protocol("WM_DELETE_WINDOW", self.close_confirm)
 
         # Create a thread for listening incoming update from server
-        update_thread = threading.Thread(target=self.listen_server)
-        update_thread.start()
+        self.update_thread = threading.Thread(target=self.listen_server)
+        self.update_thread.start()
 
         # Create a thread for listening to friend connections
-        connections_thread = threading.Thread(target=self.listen_to_friend)
-        connections_thread.start()
+        self.connections_thread = threading.Thread(target=self.listen_to_friend)
+        self.connections_thread.start()
 
-        # Bind friend list update event
-        self.flist_page.bind('<<UpdateFriendList>>', self.handle_update_friend_list)
+        self.flist_page.mainloop()
 
     def search_check(self, event):
         typed = self.input_entry.get()
@@ -275,20 +287,24 @@ class frlist_window:
                       message=f"Please choose a friend to start chatting!")
         else:
             friend_ID = self.my_listbox.get(chosen[0])
-            print(self.my_listbox.get(chosen[0]))
             self.connect_to_friend(friend_ID)
 
-    def handle_update_friend_list(self, event):
-        self.frlist_update()
-        self.update_displaylist(self.onlinelist, self.offlinelist)
     def listen_server(self):
-        print("listen")
         while True:
-            # try:
+            try:
                 server_mess = self.server_sock.recv(BYTESIZE).decode(ENCODER)
-                print(server_mess)
                 if server_mess == "FRIEND_LIST_UPDATE":
-                    self.flist_page.event_generate('<<UpdateFriendList>>', when = 'tail' )
+                    self.frlist_update()
+                    self.update_displaylist(self.onlinelist, self.offlinelist)
+                elif server_mess == "UPDATE_FRIEND_STATUS":
+                    friend_name = self.server_sock.recv(BYTESIZE).decode(ENCODER)
+                    friend_address = self.server_sock.recv(BYTESIZE).decode(ENCODER).split(':')
+                    if friend_address[0] == "NULL":
+                        self.friend_list[friend_name] = (friend_address[0], friend_address[1])
+                    else:
+                        self.friend_list[friend_name] = (friend_address[0], int(friend_address[1]))
+                    self.update_friend_status()
+                    self.update_displaylist(self.onlinelist, self.offlinelist)
                 elif server_mess == "FRIEND_REQUEST":
                     user_ID = self.server_sock.recv(BYTESIZE).decode(ENCODER)
                     if user_ID not in self.friend_request:
@@ -311,10 +327,10 @@ class frlist_window:
                     self.add_fr.set_message(server_mess)
                 elif server_mess == "NOTFOUND":
                     self.add_fr.set_message(server_mess)
-            # except:
-            #     showerror(title="Server connection lost!", message=f"Cannot connect to server!")
-            #     self.server_sock.close()
-            #     break
+            except:
+                showerror(title="Server connection lost!", message=f"Cannot connect to server!")
+                self.server_sock.close()
+                break
 
     def frlist_update(self):
         # global friend_list, server_sock
@@ -323,44 +339,48 @@ class frlist_window:
         friend_port = self.server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
         if friend_name[0] != "NULL":
             for i in range(len(friend_name)):
-                self.friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
+                if friend_ip[i] == "NULL":
+                    self.friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
+                else:
+                    self.friend_list[friend_name[i]] = (friend_ip[i], int(friend_port[i]))
         self.update_friend_status()
 
     def listen_to_friend(self):
-        # global listen_sock, conver_win_list
-        listen_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        listen_sock.bind(LISTEN_ADDRESS)
-        listen_sock.listen()
-
         # Verify and Accept or Deny Connection
         while True:
-            connected_client, address = listen_sock.accept()
-            connected_ID = self.check_address(address)
-            if (connected_ID != "NULL"):
+            connected_client, address = self.listen_sock.accept()
+            connected_id = connected_client.recv(BYTESIZE).decode(ENCODER)
+            if connected_id in self.friend_list:
                 # print("Connected with {}".format(str(address)))
-                self.conversation_list[connected_ID] = conversation_window(
-                    self.flist_page, self.myID, self.email, connected_ID, connected_client)
+                self.conversation_list[connected_id] = conversation_window(
+                    self.flist_page, self.myID, self.email, connected_id, connected_client)
             else:
                 connected_client.close()
 
     def connect_to_friend(self, friend_ID):
+        print(self.friend_list[friend_ID])
         # global sock_list
-        if friend_ID not in self.conversation_list:
+        if friend_ID not in self.conversation_list or not self.conversation_list[friend_ID].active:
             new_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            new_socket.connect(self.friend_list[friend_ID])
+            friend_ip, friend_port = self.friend_list[friend_ID]
+            new_socket.connect((friend_ip, friend_port))
+            new_socket.send(self.myID.encode(ENCODER))
             self.conversation_list[friend_ID] = conversation_window(
                 self.flist_page, self.myID, self.email, friend_ID, new_socket)
         else:
             self.conversation_list[friend_ID].bring_to_front()
 
-    def check_address(self, address):
-        for userid in self.friend_list:
-            if self.friend_list[userid] == address:
-                return userid
-        return "NULL"
+    # def check_address(self, address):
+    #     for userid in self.friend_list:
+    #         if self.friend_list[userid] == address:
+    #             return userid
+    #     return "NULL"
 
     def add_friend(self):
-        self.add_fr = addFriend_window(self.flist_page, self.server_sock, "")
+        if self.add_fr is None:
+            self.add_fr = addFriend_window(self.flist_page, self.server_sock, "")
+        else:
+            self.add_fr.bring_to_front()
 
     def unfriend(self):
         chosen = self.my_listbox.curselection()
@@ -377,7 +397,10 @@ class frlist_window:
             self.update_displaylist(self.onlinelist, self.offlinelist)
 
     def show_friend_request(self):
-        friendRequest_window(self.flist_page, self.server_sock, self.friend_request)
+        if self.fr_request is None:
+            self.fr_request = friendRequest_window(self.flist_page, self.server_sock, self.friend_request)
+        else:
+            self.fr_request.bring_to_front()
 
     def create_chatroom(self):
         pass
@@ -387,16 +410,19 @@ class frlist_window:
             title="Log out?", message="You will log out this user once you close this window!\nDo you want to log out?")
         if confirm_reply:
             for friend in self.conversation_list:
-                self.conversation_list[friend].disconnect()
+                if self.conversation_list[friend].active:
+                    self.conversation_list[friend].disconnect()
                 self.conversation_list.pop(friend)
-            login_window()
             self.server_sock.close()
             self.flist_page.destroy()
+            test = login_window()
+            test.render()
 
 
 
 class conversation_window:
     def __init__(self, root: Tk, myID: str, email: str, userid: str, user_socket: socket):
+        self.active = True
         self.userid = userid
         self.user_socket = user_socket
 
@@ -405,7 +431,7 @@ class conversation_window:
         self.conver_page.title(
             f"Simple P2P Chat application - Conversation with {self.userid}")
         self.conver_page.geometry("700x700")
-        self.conver_page.resizable(0, 0)
+        self.conver_page.resizable(None, None)
 
         # set window colors
         self.conver_page.config(bg=darkgreen)
@@ -464,13 +490,13 @@ class conversation_window:
         # Pop up confirm message when quit
         self.conver_page.protocol("WM_DELETE_WINDOW", self.close_confirm)
 
-        # Create a thread for listening incomming messages
-        self.receive_thread = threading.Thread(target=self.recieve_message)
+        # Create a thread for listening incoming messages
+        self.receive_thread = threading.Thread(target=self.receive_message)
         self.receive_thread.start()
 
-
-    def add_to_list(self, message):
+    def add_to_list(self, message, color):
         self.my_listbox.insert(END, message)
+        self.my_listbox.itemconfig(END, {'fg': color})
 
     def disconnect(self):
         self.user_socket.close()
@@ -478,15 +504,17 @@ class conversation_window:
 
     def send_message(self):
         message = self.input_entry.get()
-        check_mess = []
-        for index in range(6):
-            check_mess[index] = message[index]
-        if check_mess == "<FILE>":
-            showerror(title="Message syntax error!",
-                      message="Please do not start a message with FILE: '!")
-        else:
-            self.user_socket.send(f"m {message}".encode(ENCODER))
-            self.add_to_list(f"You: {message}")
+        print(message)
+        # check_mess = []
+        # for index in range(6):
+        #     check_mess.append(message[index])
+        # if check_mess == "<FILE>":
+        #     showerror(title="Message syntax error!",
+        #               message="Please do not start a message with FILE: '!")
+        # else:
+        self.user_socket.send(f"m {message}".encode(ENCODER))
+        self.add_to_list(f"You: {message}", "gray63")
+        self.input_entry.delete(0, END)
 
     def send_file(self):
         file_path = self.get_file()
@@ -495,29 +523,31 @@ class conversation_window:
         file_size = os.path.getsize(file_path)
         self.user_socket.send(
             f"f {file_name}:{str(file_size)}".encode(ENCODER))
+        time.sleep(0.01)
         data = file.read()
         self.user_socket.sendall(data)
         self.user_socket.send(b"<END_FILE>")
-        self.add_to_list(END, f"<FILE>You: {file_name}")
-        self.my_listbox.itemconfig(END, {'fg': 'blue'})
+        self.add_to_list(f"<FILE>You: {file_name}", "blue")
         # self.my_listbox.itemconfig(END,{'font: my_font_italic_underscore'})
         file.close()
 
-    def recieve_message(self):
+    def receive_message(self):
         while True:
             try:
-                type, message = self.user_socket.recv(
-                    BYTESIZE).decode(ENCODER).split(' ')
-                if (type == 'm'):
+                type_mess, message = self.user_socket.recv(
+                    BYTESIZE).decode(ENCODER).split(' ', 1)
+                if type_mess == 'm':
                     message = '{}: {}'.format(self.userid, message)
-                    self.add_to_list(message)
+                    self.add_to_list(message, "green3")
                 else:
                     file_name = message.split(':')
-                    file_path = f"/{self.userid}/file/{file_name}"
+                    if not os.path.exists(f"{self.userid}"):
+                        os.mkdir(f"{self.userid}")
+                    file_path = f"{self.userid}/{file_name[0]}"
                     is_existed = os.path.isfile(file_path)
                     i = 1
                     while is_existed:
-                        file_path = f"/{self.userid}/file/{file_name}_({str(i)})"
+                        file_path = f"{self.userid}/{file_name}_({str(i)})"
                         is_existed = os.path.isfile(file_path)
                         i += 1
 
@@ -530,17 +560,19 @@ class conversation_window:
                         file_bytes += file_data
                         if file_bytes[-10:] == b"<END_FILE>":
                             done = True
-                            file_bytes -= b"<END_FILE>"
+                            file_bytes = file_bytes[:-10]
 
                     file.write(file_bytes)
                     file.close()
                     message = '<FILE>{}: {}'.format(self.userid, file_name)
+                    self.add_to_list(message, "blue")
             except:
                 # An error occured, disconnect from the server
                 # conver_win_list.pop(self.userid)
                 # sock_list.pop(self.userid)
                 showerror(title="Connection lost!",
                           message=f"{self.userid} has left the conversation!")
+                self.active = False
                 self.user_socket.close()
                 break
 
@@ -548,6 +580,7 @@ class conversation_window:
         confirm_reply = askyesno(
             title="Leave conversation?", message="You will disconnect with this user and the conversation will be deleted when you close this window!\nDo you want to leave?")
         if confirm_reply:
+            self.active = False
             self.user_socket.close()
             self.conver_page.destroy()
 
@@ -569,7 +602,7 @@ class addFriend_window:
         self.addfriend_popup = tkinter.Toplevel(root)
         self.addfriend_popup.title("Add new friend")
         self.addfriend_popup.geometry("300x160")
-        self.addfriend_popup.resizable(0, 0)
+        self.addfriend_popup.resizable(None, None)
 
         # set window colors
         self.addfriend_popup.config(bg=darkgreen)
@@ -597,6 +630,9 @@ class addFriend_window:
                                             width=5, font=my_font, bg=yellow, fg=black, command=lambda: self.check_fields())
         self.input_entry.grid(row=0, column=0, padx=5, pady=5)
         self.search_button.grid(row=0, column=1, padx=5, pady=5)
+
+    def bring_to_front(self):
+        self.addfriend_popup.lift()
 
     def check_fields(self):
         if self.input_entry.get() == "":
@@ -634,7 +670,7 @@ class register_window:
         self.register_page = tkinter.Tk()
         self.register_page.title("Register Account")
         self.register_page.geometry("300x450")
-        self.register_page.resizable(0, 0)
+        self.register_page.resizable(None, None)
 
         #set window colors
         self.register_page.config(bg=darkgreen)
@@ -696,13 +732,13 @@ class register_window:
             messagebox.showerror("Register failed!", "User ID already exists!")
         elif response == 'FAIL_EMAIL':
             messagebox.showerror("Register failed!", "Email already exists!")
-        if response == 'FAIL_USERID':
-            messagebox.showerror("Register failed!", "User ID already exists!")
-        elif response == 'FAIL_EMAIL':
-            messagebox.showerror("Register failed!", "Email already exists!")
         else:
-            frlist_window(userId, password, email, {}, server_sock)
-            frlist_window(userId, password, email, {}, server_sock)
+            listen_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            listen_sock.bind(LISTEN_ADDRESS)
+            listen_sock.listen()
+            listen_sock_address = listen_sock.getsockname()
+            server_sock.send(str(listen_sock_address).encode(ENCODER))
+            frlist_window(userId, password, email, {}, server_sock, listen_sock)
             self.register_page.destroy()
 
     def close_confirm(self):
@@ -718,7 +754,7 @@ class forgotPassword_window:
         self.forgotpw_page = tkinter.Tk()
         self.forgotpw_page.title("Forgot Password")
         self.forgotpw_page.geometry("300x450")
-        self.forgotpw_page.resizable(0, 0)
+        self.forgotpw_page.resizable(None, None)
 
         # set window colors
         self.forgotpw_page.config(bg=darkgreen)
@@ -779,10 +815,23 @@ class forgotPassword_window:
         response = server_sock.recv(BYTESIZE).decode(ENCODER)
         if response == 'FAIL':
             messagebox.showerror("Error!", "User ID or Email is uncorrected!")
-        if response == 'FAIL':
-            messagebox.showerror("Error!", "User ID or Email is uncorrected!")
         else:
-            frlist_window(userId, password, email, {}, server_sock)
+            friend_name = server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
+            friend_ip = server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
+            friend_port = server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
+            friend_list = {}
+            if friend_name[0] != "NULL":
+                for i in range(len(friend_name)):
+                    friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
+
+            # Send listen address to server
+            listen_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            listen_sock.bind(LISTEN_ADDRESS)
+            listen_sock.listen()
+            listen_sock_address = listen_sock.getsockname()
+            server_sock.send(str(listen_sock_address).encode(ENCODER))
+
+            frlist_window(userId, password, email, friend_list, server_sock, listen_sock)
             self.forgotpw_page.destroy()
 
     def close_confirm(self):
@@ -794,7 +843,7 @@ class forgotPassword_window:
 
 
 class friendRequest_window:
-    def __init__(self, root: Tk, server_sock: socket, friend_request):
+    def __init__(self, root: Tk, server_sock: socket, friend_request: list):
         self.friendrequest_list = friend_request
         self.server_sock = server_sock
 
@@ -802,7 +851,7 @@ class friendRequest_window:
         self.friendrequest_popup = tkinter.Toplevel(root)
         self.friendrequest_popup.title("Friend Request")
         self.friendrequest_popup.geometry("300x350")
-        self.friendrequest_popup.resizable(0, 0)
+        self.friendrequest_popup.resizable(None, None)
 
         # set window colors
         self.friendrequest_popup.config(bg=darkgreen)
@@ -839,8 +888,11 @@ class friendRequest_window:
         self.refuse_button.grid(row=0, column=1, padx=5, pady=5)
         self.update_displaylist()
 
-    def update_friendlist(self, list):
-        self.friendrequest_list = list
+    def bring_to_front(self):
+        self.friendrequest_popup.lift()
+
+    def update_friendlist(self, fr_list):
+        self.friendrequest_list = fr_list
         self.update_displaylist()
 
     def update_displaylist(self):
@@ -870,6 +922,7 @@ class friendRequest_window:
             self.server_sock.send(f"REFUSE_FRIEND {userid}".encode(ENCODER))
             self.friendrequest_list.remove(userid)
             self.update_displaylist()
+
 
 class chatroom_window:
     pass
