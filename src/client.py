@@ -1,5 +1,7 @@
 # Client Chat App
 # import sys
+import json
+import sys
 import tkinter
 import socket
 import threading
@@ -72,6 +74,7 @@ class login_window:
 
         #
         self.login_page.protocol("WM_DELETE_WINDOW", self.close)
+
 
     def show_passwd(self, entry_field):
         if entry_field.cget('show') == '*':
@@ -148,8 +151,10 @@ class frlist_window:
         self.listen_sock = listen_sock
         self.conversation_list = {}
         self.friend_request = []
+        self.chat_room_list = []
         self.add_fr = None
         self.fr_request = None
+        self.flag = False
 
         # Separate friend into online and offline list
         self.onlinelist = []
@@ -195,14 +200,18 @@ class frlist_window:
 
         # Label Frame Layout
         self.friend_list_label = tkinter.Label(self.label_frame, text="Friend List", font=(
-            'haveltica', 18), fg=white, bg=darkgreen, width=30, anchor="nw")
+            'haveltica', 18), fg=white, bg=darkgreen, width=23, anchor="nw")
         self.frrequest_button = tkinter.Button(self.label_frame, text="Friend request", borderwidth=0,
                                                width=10, font=my_font_small, bg=yellow, fg=black, command=lambda: self.show_friend_request())
         self.addfr_button = tkinter.Button(self.label_frame, text="Add friend", borderwidth=0,
                                            width=10, font=my_font_small, bg=yellow, fg=black, command=lambda: self.add_friend())
+        self.chatroom_button = tkinter.Button(self.label_frame, text="Chat room", borderwidth=0,
+                                           width=10, font=my_font_small, bg=yellow, fg=black,
+                                           command=lambda: self.chat_room())
         self.friend_list_label.grid(row=0, column=0, padx=5, pady=5)
-        self.frrequest_button.grid(row=0, column=1, padx=5, pady=5)
-        self.addfr_button.grid(row=0, column=2, padx=5, pady=5)
+        self.chatroom_button.grid(row=0, column=1, padx=5, pady=5)
+        self.frrequest_button.grid(row=0, column=2, padx=5, pady=5)
+        self.addfr_button.grid(row=0, column=3, padx=5, pady=5)
 
         # List Frame Layout
         self.my_scrollbar = tkinter.Scrollbar(self.list_frame, orient=VERTICAL)
@@ -328,6 +337,8 @@ class frlist_window:
                 elif server_mess == "NOTFOUND":
                     self.add_fr.set_message(server_mess)
             except:
+                if self.flag:
+                    sys.exit()
                 showerror(title="Server connection lost!", message=f"Cannot connect to server!")
                 self.server_sock.close()
                 break
@@ -347,7 +358,7 @@ class frlist_window:
 
     def listen_to_friend(self):
         # Verify and Accept or Deny Connection
-        while True:
+        while not self.flag:
             connected_client, address = self.listen_sock.accept()
             connected_id = connected_client.recv(BYTESIZE).decode(ENCODER)
             if connected_id in self.friend_list:
@@ -377,7 +388,7 @@ class frlist_window:
     #     return "NULL"
 
     def add_friend(self):
-        if self.add_fr is None:
+        if self.add_fr is None or not self.add_fr.active:
             self.add_fr = addFriend_window(self.flist_page, self.server_sock, "")
         else:
             self.add_fr.bring_to_front()
@@ -397,10 +408,13 @@ class frlist_window:
             self.update_displaylist(self.onlinelist, self.offlinelist)
 
     def show_friend_request(self):
-        if self.fr_request is None:
+        if self.fr_request is None or not self.fr_request.active:
             self.fr_request = friendRequest_window(self.flist_page, self.server_sock, self.friend_request)
         else:
             self.fr_request.bring_to_front()
+
+    def chat_room(self):
+        pass
 
     def create_chatroom(self):
         pass
@@ -409,6 +423,8 @@ class frlist_window:
         confirm_reply = askyesno(
             title="Log out?", message="You will log out this user once you close this window!\nDo you want to log out?")
         if confirm_reply:
+            self.flag = True
+            self.server_sock.send(f"FRIEND_REQUEST_TIMEOUT {json.dumps(self.friend_request)}".encode(ENCODER))
             for friend in self.conversation_list:
                 if self.conversation_list[friend].active:
                     self.conversation_list[friend].disconnect()
@@ -597,6 +613,7 @@ class addFriend_window:
     def __init__(self, root: Tk, server_sock: socket, message: str):
         self.server_sock = server_sock
         self.message = message
+        self.active = True
 
         # define ADD FRIEND window
         self.addfriend_popup = tkinter.Toplevel(root)
@@ -630,6 +647,12 @@ class addFriend_window:
                                             width=5, font=my_font, bg=yellow, fg=black, command=lambda: self.check_fields())
         self.input_entry.grid(row=0, column=0, padx=5, pady=5)
         self.search_button.grid(row=0, column=1, padx=5, pady=5)
+
+        self.addfriend_popup.protocol("WM_DELETE_WINDOW", self.close_confirm)
+
+    def close_confirm(self):
+        self.active = False
+        self.addfriend_popup.destroy()
 
     def bring_to_front(self):
         self.addfriend_popup.lift()
@@ -737,9 +760,11 @@ class register_window:
             listen_sock.bind(LISTEN_ADDRESS)
             listen_sock.listen()
             listen_sock_address = listen_sock.getsockname()
-            server_sock.send(str(listen_sock_address).encode(ENCODER))
-            frlist_window(userId, password, email, {}, server_sock, listen_sock)
+            server_sock.send(f"{str(listen_sock_address[0])}:{str(listen_sock_address[1])}".encode(ENCODER))
+
             self.register_page.destroy()
+            frlist_window(userId, password, email, {}, server_sock, listen_sock)
+
 
     def close_confirm(self):
         confirm_reply = askyesno(title="Cancel register?", message="Do you want cancel your register?")
@@ -829,16 +854,15 @@ class forgotPassword_window:
             listen_sock.bind(LISTEN_ADDRESS)
             listen_sock.listen()
             listen_sock_address = listen_sock.getsockname()
-            server_sock.send(str(listen_sock_address).encode(ENCODER))
+            server_sock.send(f"{str(listen_sock_address[0])}:{str(listen_sock_address[1])}".encode(ENCODER))
 
-            frlist_window(userId, password, email, friend_list, server_sock, listen_sock)
             self.forgotpw_page.destroy()
+            frlist_window(userId, password, email, friend_list, server_sock, listen_sock)
 
     def close_confirm(self):
         confirm_reply = askyesno(title="Cancel?", message="Do you want to cancel?")
         if confirm_reply:
             login_window()
-            self.forgotpw_page.destroy()
             self.forgotpw_page.destroy()
 
 
@@ -846,6 +870,7 @@ class friendRequest_window:
     def __init__(self, root: Tk, server_sock: socket, friend_request: list):
         self.friendrequest_list = friend_request
         self.server_sock = server_sock
+        self.active = True
 
         # define FRIEND LIST window
         self.friendrequest_popup = tkinter.Toplevel(root)
@@ -886,7 +911,13 @@ class friendRequest_window:
                                             bg=yellow, fg=black, command=lambda: self.refuse())
         self.accept_button.grid(row=0, column=0, padx=5, pady=5)
         self.refuse_button.grid(row=0, column=1, padx=5, pady=5)
+
         self.update_displaylist()
+        self.friendrequest_popup.protocol("WM_DELETE_WINDOW", self.close_confirm)
+
+    def close_confirm(self):
+        self.active = False
+        self.friendrequest_popup.destroy()
 
     def bring_to_front(self):
         self.friendrequest_popup.lift()
@@ -925,8 +956,93 @@ class friendRequest_window:
 
 
 class chatroom_window:
-    pass
+    def __init__(self, root: Tk, server_sock: socket, friend_request: list):
+        self.friendrequest_list = friend_request
+        self.server_sock = server_sock
+        self.active = True
 
+        # define FRIEND LIST window
+        self.friendrequest_popup = tkinter.Toplevel(root)
+        self.friendrequest_popup.title("Friend Request")
+        self.friendrequest_popup.geometry("300x350")
+        self.friendrequest_popup.resizable(None, None)
 
-login_page = login_window()
-login_page.render()
+        # set window colors
+        self.friendrequest_popup.config(bg=darkgreen)
+
+        # Define GUI Layout
+        # Create Frames
+        self.label_frame = tkinter.Frame(self.friendrequest_popup, bg=darkgreen)
+        self.list_frame = tkinter.Frame(self.friendrequest_popup, bg=darkgreen)
+        self.button_frame = tkinter.Frame(self.friendrequest_popup, bg=darkgreen)
+
+        self.label_frame.pack(pady=5)
+        self.list_frame.pack()
+        self.button_frame.pack(pady=5)
+
+        # Label Frame Layout
+        self.label_test = tkinter.Label(self.label_frame, text="Friend Request", font=('haveltica', 18), fg=yellow,
+                                        bg=darkgreen, width=20)
+        self.label_test.grid(row=0, column=0, padx=5, pady=5)
+
+        # List Frame Layout
+        self.my_scrollbar = tkinter.Scrollbar(self.list_frame, orient=VERTICAL)
+        self.my_listbox = tkinter.Listbox(self.list_frame, height=10, width=25, borderwidth=0, bg=white, fg=darkgreen,
+                                          font=my_font, yscrollcommand=self.my_scrollbar.set)
+        self.my_scrollbar.config(command=self.my_listbox.yview)
+        self.my_listbox.grid(row=0, column=0)
+        self.my_scrollbar.grid(row=0, column=1, sticky="NS")
+
+        # Button Frame Layout
+        self.accept_button = tkinter.Button(self.button_frame, text="Accept", width=10, borderwidth=0, font=my_font,
+                                            bg=yellow, fg=black, command=lambda: self.accept())
+        self.refuse_button = tkinter.Button(self.button_frame, text="Refuse", width=10, borderwidth=0, font=my_font,
+                                            bg=yellow, fg=black, command=lambda: self.refuse())
+        self.accept_button.grid(row=0, column=0, padx=5, pady=5)
+        self.refuse_button.grid(row=0, column=1, padx=5, pady=5)
+
+        self.update_displaylist()
+        self.friendrequest_popup.protocol("WM_DELETE_WINDOW", self.close_confirm)
+
+    def close_confirm(self):
+        self.active = False
+        self.friendrequest_popup.destroy()
+
+    def bring_to_front(self):
+        self.friendrequest_popup.lift()
+
+    def update_friendlist(self, fr_list):
+        self.friendrequest_list = fr_list
+        self.update_displaylist()
+
+    def update_displaylist(self):
+        self.my_listbox.delete(0, END)
+        for user in self.friendrequest_list:
+            self.my_listbox.insert(0, user)
+            self.my_listbox.itemconfig(0, {'fg': 'green2'})
+
+    def accept(self):
+        chosen = self.my_listbox.curselection()
+        if len(chosen) == 0:
+            showerror(title="No friend selected!",
+                      message=f"Please choose a friend !")
+        else:
+            userid = self.my_listbox.get(chosen[0])
+            self.server_sock.send(f"ACCEPT_FRIEND {userid}".encode(ENCODER))
+            self.friendrequest_list.remove(userid)
+            self.update_displaylist()
+
+    def refuse(self):
+        chosen = self.my_listbox.curselection()
+        if len(chosen) == 0:
+            showerror(title="No friend selected!",
+                      message=f"Please choose a friend!")
+        else:
+            userid = self.my_listbox.get(chosen[0])
+            self.server_sock.send(f"REFUSE_FRIEND {userid}".encode(ENCODER))
+            self.friendrequest_list.remove(userid)
+            self.update_displaylist()
+
+if __name__ == "__main__":
+    login_page = login_window()
+    login_page.render()

@@ -1,3 +1,4 @@
+import json
 import socket
 import threading
 import time
@@ -47,11 +48,11 @@ def verify_account(client_socket, client_address):
             client_socket.close()
     elif flag == 'REGISTER':
         reg_userid, reg_email, reg_password = message.split(':')
-        if register(client_socket, reg_userid,
-                    reg_password, reg_email, database):
+        if register(client_socket, reg_userid, reg_password, reg_email, database):
             client_name_list.append(reg_userid)
-            client_address_list.append(client_address)
             client_socket_list.append(client_socket)
+            ip, port = client_socket.recv(BYTESIZE).decode(ENCODER).split(':')
+            client_address_list.append((ip, int(port)))
             service(client_socket, reg_userid, database)
         else:
             database.close()
@@ -60,8 +61,9 @@ def verify_account(client_socket, client_address):
         fp_userid, fp_email, new_password = message.split(':')
         if forgot_pass(client_socket, fp_userid, new_password, fp_email, database):
             client_name_list.append(fp_userid)
-            client_address_list.append(client_address)
             client_socket_list.append(client_socket)
+            ip, port = client_socket.recv(BYTESIZE).decode(ENCODER).split(':')
+            client_address_list.append((ip, int(port)))
             service(client_socket, fp_userid, database)
         else:
             database.close()
@@ -108,7 +110,7 @@ def service(client_socket, userid, database):
     update_personal_status(database, userid, "online")
     while True:
         try:
-            flag, message = client_socket.recv(BYTESIZE).decode(ENCODER).split(' ')
+            flag, message = client_socket.recv(BYTESIZE).decode(ENCODER).split(' ', 1)
             print(flag, message)
             if flag == 'UNFRIEND':
                 delete_friend(database, userid, message)
@@ -142,6 +144,14 @@ def service(client_socket, userid, database):
                 send_message(tmp_socket, userid)
                 client_socket.send("DEL_TIMEOUT_REQUEST".encode(ENCODER))
                 send_message(client_socket, message)
+            elif flag == 'FRIEND_REQUEST_TIMEOUT':
+                list_timeout = json.loads(message)
+                print(list_timeout)
+                for user in list_timeout:
+                    if user in client_name_list:
+                        tmp_socket = client_socket_list[client_name_list.index(user)]
+                        send_message(tmp_socket, "REQUEST_TIMEOUT")
+                        send_message(tmp_socket, userid)
         except:
             update_personal_status(database, userid, "offline")
             index = client_socket_list.index(client_socket)
