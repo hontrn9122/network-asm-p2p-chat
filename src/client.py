@@ -7,6 +7,7 @@ import socket
 import threading
 import os
 import time
+import rsa
 from tkinter import *
 from tkinter import messagebox
 from theme import *
@@ -22,7 +23,10 @@ MY_PORT = 0
 LISTEN_ADDRESS = ('localhost', MY_PORT)
 ENCODER = 'utf-8'
 BYTESIZE = 1024
+PUB_KEY, PRI_KEY = rsa.newkeys(1024)
 
+# Server public key
+public_server = None
 
 class login_window:
     def __init__(self):
@@ -99,32 +103,39 @@ class login_window:
             messagebox.showerror(
                 "Connect failed!", "Cannot connect to the server!")
             return
-        server_sock.send(f"LOGIN {myID}:{password}".encode(ENCODER))
-        response = server_sock.recv(BYTESIZE).decode(ENCODER)
+        global public_server
+        server_sock.send(PUB_KEY.save_pkcs1("PEM"))
+        public_server = rsa.PublicKey.load_pkcs1(server_sock.recv(BYTESIZE))
+        server_sock.send(rsa.encrypt(f"LOGIN {myID}:{password}".encode(ENCODER), public_server))
+        response = rsa.decrypt(server_sock.recv(BYTESIZE), PRI_KEY).decode(ENCODER)
         if response == "FAIL":
             messagebox.showwarning("Login failed!", "Incorrect User ID or Password!")
         else:
-            email = server_sock.recv(BYTESIZE).decode(ENCODER)
-            friend_name = server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
-            friend_ip = server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
-            friend_port = server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
+            email = rsa.decrypt(server_sock.recv(BYTESIZE), PRI_KEY).decode(ENCODER)
+            friend_name = rsa.decrypt(server_sock.recv(BYTESIZE), PRI_KEY).decode(ENCODER).split(' ')
+            friend_ip = rsa.decrypt(server_sock.recv(BYTESIZE), PRI_KEY).decode(ENCODER).split(' ')
+            friend_port = rsa.decrypt(server_sock.recv(BYTESIZE), PRI_KEY).decode(ENCODER).split(' ')
             friend_list = {}
+            friend_key_list = {}
             if friend_name[0] != "NULL":
                 for i in range(len(friend_name)):
                     if friend_ip[i] == "NULL":
                         friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
                     else:
                         friend_list[friend_name[i]] = (friend_ip[i], int(friend_port[i]))
+                        friend_key_list[friend_name[i]] = rsa.PublicKey.load_pkcs1(
+                            server_sock.recv(BYTESIZE)
+                        )
 
             # Send listen address to server
             listen_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             listen_sock.bind(LISTEN_ADDRESS)
             listen_sock.listen()
             listen_sock_address = listen_sock.getsockname()
-            server_sock.send(f"{str(listen_sock_address[0])}:{str(listen_sock_address[1])}".encode(ENCODER))
+            server_sock.send(rsa.encrypt(f"{str(listen_sock_address[0])}:{str(listen_sock_address[1])}".encode(ENCODER), public_server))
             print(f"{myID} is listening on {listen_sock_address}")
             self.close()
-            frlist_window(myID, password, email, friend_list, server_sock, listen_sock)
+            frlist_window(myID, password, email, friend_list, friend_key_list, server_sock, listen_sock)
 
     def register(self):
         register_window()
@@ -142,11 +153,12 @@ class login_window:
 
 
 class frlist_window:
-    def __init__(self, myID: str, password: str, email: str, friend_list: dict, server_sock: socket, listen_sock: socket):
+    def __init__(self, myID: str, password: str, email: str, friend_list: dict, friend_key_list: dict, server_sock: socket, listen_sock: socket):
         self.myID = myID
         self.password = password
         self.email = email
         self.friend_list = friend_list
+        self.friend_key_list = friend_key_list
         self.server_sock = server_sock
         self.listen_sock = listen_sock
         self.conversation_list = {}
@@ -247,11 +259,11 @@ class frlist_window:
         self.flist_page.protocol("WM_DELETE_WINDOW", self.close_confirm)
 
         # Create a thread for listening incoming update from server
-        self.update_thread = threading.Thread(target=self.listen_server)
+        self.update_thread = threading.Thread(target=self.listen_server, daemon=True)
         self.update_thread.start()
 
         # Create a thread for listening to friend connections
-        self.connections_thread = threading.Thread(target=self.listen_to_friend)
+        self.connections_thread = threading.Thread(target=self.listen_to_friend, daemon=True)
         self.connections_thread.start()
 
         self.flist_page.mainloop()
@@ -301,33 +313,36 @@ class frlist_window:
     def listen_server(self):
         while True:
             try:
-                server_mess = self.server_sock.recv(BYTESIZE).decode(ENCODER)
+                server_mess = rsa.decrypt(self.server_sock.recv(BYTESIZE), PRI_KEY).decode(ENCODER)
                 if server_mess == "FRIEND_LIST_UPDATE":
                     self.frlist_update()
                     self.update_displaylist(self.onlinelist, self.offlinelist)
                 elif server_mess == "UPDATE_FRIEND_STATUS":
-                    friend_name = self.server_sock.recv(BYTESIZE).decode(ENCODER)
-                    friend_address = self.server_sock.recv(BYTESIZE).decode(ENCODER).split(':')
+                    friend_name = rsa.decrypt(self.server_sock.recv(BYTESIZE), PRI_KEY).decode(ENCODER)
+                    friend_address = rsa.decrypt(self.server_sock.recv(BYTESIZE), PRI_KEY).decode(ENCODER).split(':')
                     if friend_address[0] == "NULL":
                         self.friend_list[friend_name] = (friend_address[0], friend_address[1])
                     else:
                         self.friend_list[friend_name] = (friend_address[0], int(friend_address[1]))
+                        self.friend_key_list[friend_name] = rsa.PublicKey.load_pkcs1(
+                            self.server_sock.recv(BYTESIZE)
+                        )
                     self.update_friend_status()
                     self.update_displaylist(self.onlinelist, self.offlinelist)
                 elif server_mess == "FRIEND_REQUEST":
-                    user_ID = self.server_sock.recv(BYTESIZE).decode(ENCODER)
+                    user_ID = rsa.decrypt(self.server_sock.recv(BYTESIZE), PRI_KEY).decode(ENCODER)
                     if user_ID not in self.friend_request:
                         self.friend_request.append(user_ID)
                 elif server_mess == "REQUEST_TIMEOUT":
-                    user_ID = self.server_sock.recv(BYTESIZE).decode(ENCODER)
+                    user_ID = rsa.decrypt(self.server_sock.recv(BYTESIZE), PRI_KEY).decode(ENCODER)
                     messagebox.showinfo(
                         "Friend request timeout!", f"Friend request to {user_ID} has timed out!")
                 elif server_mess == "REQUEST_DENIED":
-                    user_ID = self.server_sock.recv(BYTESIZE).decode(ENCODER)
+                    user_ID = rsa.decrypt(self.server_sock.recv(BYTESIZE), PRI_KEY).decode(ENCODER)
                     messagebox.showinfo(
                         "Friend request denied!", f"Friend request to {user_ID} has been denied!")
                 elif server_mess == "DEL_TIMEOUT_REQUEST":
-                    user_ID = self.server_sock.recv(BYTESIZE).decode(ENCODER)
+                    user_ID = rsa.decrypt(self.server_sock.recv(BYTESIZE), PRI_KEY).decode(ENCODER)
                     if user_ID in self.friend_request:
                         self.friend_request.remove(user_ID)
                 elif server_mess == "FOUND_ONLINE":
@@ -345,26 +360,31 @@ class frlist_window:
 
     def frlist_update(self):
         # global friend_list, server_sock
-        friend_name = self.server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
-        friend_ip = self.server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
-        friend_port = self.server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
+        friend_name = rsa.decrypt(self.server_sock.recv(BYTESIZE), PRI_KEY).decode(ENCODER).split(' ')
+        friend_ip = rsa.decrypt(self.server_sock.recv(BYTESIZE), PRI_KEY).decode(ENCODER).split(' ')
+        friend_port = rsa.decrypt(self.server_sock.recv(BYTESIZE), PRI_KEY).decode(ENCODER).split(' ')
+
         if friend_name[0] != "NULL":
             for i in range(len(friend_name)):
                 if friend_ip[i] == "NULL":
                     self.friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
                 else:
                     self.friend_list[friend_name[i]] = (friend_ip[i], int(friend_port[i]))
+                    self.friend_key_list[friend_name[i]] = rsa.PublicKey.load_pkcs1(
+                        self.server_sock.recv(BYTESIZE)
+                    )
         self.update_friend_status()
 
     def listen_to_friend(self):
         # Verify and Accept or Deny Connection
         while not self.flag:
             connected_client, address = self.listen_sock.accept()
-            connected_id = connected_client.recv(BYTESIZE).decode(ENCODER)
+            connected_id = rsa.decrypt(connected_client.recv(BYTESIZE), PRI_KEY).decode(ENCODER)
             if connected_id in self.friend_list:
                 # print("Connected with {}".format(str(address)))
                 self.conversation_list[connected_id] = conversation_window(
-                    self.flist_page, self.myID, self.email, connected_id, connected_client)
+                    self.flist_page, self.myID, self.email,
+                    self.friend_key_list[connected_id], connected_id, connected_client)
             else:
                 connected_client.close()
 
@@ -375,9 +395,10 @@ class frlist_window:
             new_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             friend_ip, friend_port = self.friend_list[friend_ID]
             new_socket.connect((friend_ip, friend_port))
-            new_socket.send(self.myID.encode(ENCODER))
+            friend_key = self.friend_key_list[friend_ID]
+            new_socket.send(rsa.encrypt(self.myID.encode(ENCODER), friend_key))
             self.conversation_list[friend_ID] = conversation_window(
-                self.flist_page, self.myID, self.email, friend_ID, new_socket)
+                self.flist_page, self.myID, self.email, friend_key, friend_ID, new_socket)
         else:
             self.conversation_list[friend_ID].bring_to_front()
 
@@ -399,7 +420,7 @@ class frlist_window:
             showerror(title="No friend selected!", message=f"Please choose a friend to remove!")
         else:
             friend_ID = self.my_listbox.get(chosen[0])
-            self.server_sock.send(f"UNFRIEND {friend_ID}".encode(ENCODER))
+            self.server_sock.send(rsa.encrypt(f"UNFRIEND {friend_ID}".encode(ENCODER), public_server))
             self.friend_list.pop(friend_ID)
             if friend_ID in self.offlinelist:
                 self.offlinelist.remove(friend_ID)
@@ -424,7 +445,7 @@ class frlist_window:
             title="Log out?", message="You will log out this user once you close this window!\nDo you want to log out?")
         if confirm_reply:
             self.flag = True
-            self.server_sock.send(f"FRIEND_REQUEST_TIMEOUT {json.dumps(self.friend_request)}".encode(ENCODER))
+            self.server_sock.send(rsa.encrypt(f"FRIEND_REQUEST_TIMEOUT {json.dumps(self.friend_request)}".encode(ENCODER), public_server))
             for friend in self.conversation_list:
                 if self.conversation_list[friend].active:
                     self.conversation_list[friend].disconnect()
@@ -437,11 +458,11 @@ class frlist_window:
 
 
 class conversation_window:
-    def __init__(self, root: Tk, myID: str, email: str, userid: str, user_socket: socket):
+    def __init__(self, root: Tk, myID: str, email: str, friend_key, userid: str, user_socket: socket):
         self.active = True
         self.userid = userid
         self.user_socket = user_socket
-
+        self.friend_key = friend_key
         # define CONVERSATION window
         self.conver_page = tkinter.Toplevel(root)
         self.conver_page.title(
@@ -484,8 +505,7 @@ class conversation_window:
         self.friend_list_label.grid(row=0, column=0, padx=5, pady=5)
 
         # Output Frame Layout
-        self.my_scrollbar = tkinter.Scrollbar(
-            self.output_frame, orient=VERTICAL)
+        self.my_scrollbar = tkinter.Scrollbar(self.output_frame, orient=VERTICAL)
         self.my_listbox = tkinter.Listbox(self.output_frame, height=20, width=55, borderwidth=0,
                                           bg=white, fg=darkgreen, font=my_font, yscrollcommand=self.my_scrollbar.set)
         self.my_scrollbar.config(command=self.my_listbox.yview)
@@ -507,7 +527,7 @@ class conversation_window:
         self.conver_page.protocol("WM_DELETE_WINDOW", self.close_confirm)
 
         # Create a thread for listening incoming messages
-        self.receive_thread = threading.Thread(target=self.receive_message)
+        self.receive_thread = threading.Thread(target=self.receive_message, daemon=True)
         self.receive_thread.start()
 
     def add_to_list(self, message, color):
@@ -528,7 +548,16 @@ class conversation_window:
         #     showerror(title="Message syntax error!",
         #               message="Please do not start a message with FILE: '!")
         # else:
-        self.user_socket.send(f"m {message}".encode(ENCODER))
+        # self.user_socket.send(rsa.encrypt(f"m {message}".encode(ENCODER), self.friend_key))
+        send_message = f"m {message}"
+        if len(send_message) > 100:
+            split_mess = [send_message[i:i + 100] for i in range(0, len(send_message), 100)]
+        else:
+            split_mess = [send_message]
+        for mess_pack in split_mess:
+            self.user_socket.send(rsa.encrypt(mess_pack.encode(ENCODER), self.friend_key))
+            time.sleep(0.01)
+        self.user_socket.send(rsa.encrypt(b"<END_MESS>", self.friend_key))
         self.add_to_list(f"You: {message}", "gray63")
         self.input_entry.delete(0, END)
 
@@ -537,8 +566,18 @@ class conversation_window:
         file_name = os.path.basename(file_path)
         file = open(file_path, 'rb')
         file_size = os.path.getsize(file_path)
-        self.user_socket.send(
-            f"f {file_name}:{str(file_size)}".encode(ENCODER))
+        message = f"f {file_name}:{str(file_size)}"
+        if len(message) > 100:
+            split_mess = [message[i:i + 100] for i in range(0, len(message), 100)]
+        else:
+            split_mess = [message]
+        for mess_pack in split_mess:
+            self.user_socket.send(rsa.encrypt(mess_pack.encode(ENCODER), self.friend_key))
+            time.sleep(0.01)
+        self.user_socket.send(rsa.encrypt(b"<END_MESS>", self.friend_key))
+        # self.user_socket.send(
+        #     rsa.encrypt(f"f {file_name}:{str(file_size)}".encode(ENCODER), self.friend_key)
+        # )
         time.sleep(0.01)
         data = file.read()
         self.user_socket.sendall(data)
@@ -549,9 +588,18 @@ class conversation_window:
 
     def receive_message(self):
         while True:
-            try:
-                type_mess, message = self.user_socket.recv(
-                    BYTESIZE).decode(ENCODER).split(' ', 1)
+            #try:
+                mess_bytes = b""
+                done = False
+                while not done:
+                    mess_data = rsa.decrypt(self.user_socket.recv(BYTESIZE), PRI_KEY)
+                    mess_bytes += mess_data
+                    if mess_bytes[-10:] == b"<END_MESS>":
+                        done = True
+                        mess_bytes = mess_bytes[:-10]
+                type_mess, message = mess_bytes.decode(ENCODER).split(' ', 1)
+                # type_mess, message = rsa.decrypt(self.user_socket.recv(
+                #     BYTESIZE), PRI_KEY).decode(ENCODER).split(' ', 1)
                 if type_mess == 'm':
                     message = '{}: {}'.format(self.userid, message)
                     self.add_to_list(message, "green3")
@@ -572,7 +620,7 @@ class conversation_window:
                     done = False
 
                     while not done:
-                        file_data = self.user_socket.recv(1024)
+                        file_data = self.user_socket.recv(BYTESIZE)
                         file_bytes += file_data
                         if file_bytes[-10:] == b"<END_FILE>":
                             done = True
@@ -580,17 +628,17 @@ class conversation_window:
 
                     file.write(file_bytes)
                     file.close()
-                    message = '<FILE>{}: {}'.format(self.userid, file_name)
+                    message = '<FILE>{}: {}'.format(self.userid, file_name[0])
                     self.add_to_list(message, "blue")
-            except:
-                # An error occured, disconnect from the server
-                # conver_win_list.pop(self.userid)
-                # sock_list.pop(self.userid)
-                showerror(title="Connection lost!",
-                          message=f"{self.userid} has left the conversation!")
-                self.active = False
-                self.user_socket.close()
-                break
+            # except:
+            #     # An error occured, disconnect from the server
+            #     # conver_win_list.pop(self.userid)
+            #     # sock_list.pop(self.userid)
+            #     showerror(title="Connection lost!",
+            #               message=f"{self.userid} has left the conversation!")
+            #     self.active = False
+            #     self.user_socket.close()
+            #     break
 
     def close_confirm(self):
         confirm_reply = askyesno(
@@ -668,7 +716,7 @@ class addFriend_window:
 
     def find_user(self):
         user_id = self.input_entry.get()
-        self.server_sock.send(f"FIND {user_id}".encode(ENCODER))
+        self.server_sock.send(rsa.encrypt(f"FIND {user_id}".encode(ENCODER), public_server))
         time.sleep(0.01)
         if self.message == "FOUND_ONLINE":
             self.result.config(text=f"{user_id} is online")
@@ -681,7 +729,7 @@ class addFriend_window:
     def request_friend(self):
         self.add_button.config(state=DISABLED)
         user_id = self.input_entry.get()
-        self.server_sock.send(f"REQUEST {user_id}".encode(ENCODER))
+        self.server_sock.send(rsa.encrypt(f"REQUEST {user_id}".encode(ENCODER), public_server))
         self.set_message("")
         self.result.config(text="<result>")
         self.add_button.config(state=DISABLED)
@@ -749,8 +797,12 @@ class register_window:
         except:
             messagebox.showerror("Register failed!", "Cannot connect to the server!")
             return
-        server_sock.send(f"REGISTER {userId}:{email}:{password}".encode(ENCODER))
-        response = server_sock.recv(BYTESIZE).decode(ENCODER)
+        global public_server
+        server_sock.send(PUB_KEY.save_pkcs1("PEM"))
+        public_server = rsa.PublicKey.load_pkcs1(server_sock.recv(BYTESIZE))
+
+        server_sock.send(rsa.encrypt(f"REGISTER {userId}:{email}:{password}".encode(ENCODER), public_server))
+        response = rsa.decrypt(server_sock.recv(BYTESIZE), PRI_KEY).decode(ENCODER)
         if response == 'FAIL_USERID':
             messagebox.showerror("Register failed!", "User ID already exists!")
         elif response == 'FAIL_EMAIL':
@@ -760,10 +812,14 @@ class register_window:
             listen_sock.bind(LISTEN_ADDRESS)
             listen_sock.listen()
             listen_sock_address = listen_sock.getsockname()
-            server_sock.send(f"{str(listen_sock_address[0])}:{str(listen_sock_address[1])}".encode(ENCODER))
+            server_sock.send(
+                rsa.encrypt(
+                    f"{str(listen_sock_address[0])}:{str(listen_sock_address[1])}".encode(ENCODER), public_server
+                )
+            )
 
             self.register_page.destroy()
-            frlist_window(userId, password, email, {}, server_sock, listen_sock)
+            frlist_window(userId, password, email, {}, {}, server_sock, listen_sock)
 
 
     def close_confirm(self):
@@ -836,28 +892,39 @@ class forgotPassword_window:
         except:
             messagebox.showerror("Error!", "Cannot connect to the server!")
             return
-        server_sock.send(f"FORGOTPASS {userId}:{email}:{password}".encode(ENCODER))
-        response = server_sock.recv(BYTESIZE).decode(ENCODER)
+        global public_server
+        server_sock.send(PUB_KEY.save_pkcs1("PEM"))
+        public_server = rsa.PublicKey.load_pkcs1(server_sock.recv(BYTESIZE))
+        server_sock.send(rsa.encrypt(f"FORGOTPASS {userId}:{email}:{password}".encode(ENCODER), public_server))
+        response = rsa.decrypt(server_sock.recv(BYTESIZE), PRI_KEY).decode(ENCODER)
         if response == 'FAIL':
             messagebox.showerror("Error!", "User ID or Email is uncorrected!")
         else:
-            friend_name = server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
-            friend_ip = server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
-            friend_port = server_sock.recv(BYTESIZE).decode(ENCODER).split(' ')
+            friend_name = rsa.decrypt(server_sock.recv(BYTESIZE), PRI_KEY).decode(ENCODER).split(' ')
+            friend_ip = rsa.decrypt(server_sock.recv(BYTESIZE), PRI_KEY).decode(ENCODER).split(' ')
+            friend_port = rsa.decrypt(server_sock.recv(BYTESIZE), PRI_KEY).decode(ENCODER).split(' ')
             friend_list = {}
+            friend_key_list = {}
+
             if friend_name[0] != "NULL":
                 for i in range(len(friend_name)):
-                    friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
+                    if friend_ip[i] == "NULL":
+                        friend_list[friend_name[i]] = (friend_ip[i], friend_port[i])
+                    else:
+                        friend_list[friend_name[i]] = (friend_ip[i], int(friend_port[i]))
+                        friend_key_list[friend_name[i]] = rsa.PublicKey.load_pkcs1(
+                            server_sock.recv(BYTESIZE)
+                        )
 
             # Send listen address to server
             listen_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             listen_sock.bind(LISTEN_ADDRESS)
             listen_sock.listen()
             listen_sock_address = listen_sock.getsockname()
-            server_sock.send(f"{str(listen_sock_address[0])}:{str(listen_sock_address[1])}".encode(ENCODER))
+            server_sock.send(rsa.encrypt(f"{str(listen_sock_address[0])}:{str(listen_sock_address[1])}".encode(ENCODER), public_server))
 
             self.forgotpw_page.destroy()
-            frlist_window(userId, password, email, friend_list, server_sock, listen_sock)
+            frlist_window(userId, password, email, friend_list, friend_key_list, server_sock, listen_sock)
 
     def close_confirm(self):
         confirm_reply = askyesno(title="Cancel?", message="Do you want to cancel?")
@@ -939,7 +1006,7 @@ class friendRequest_window:
                       message=f"Please choose a friend !")
         else:
             userid = self.my_listbox.get(chosen[0])
-            self.server_sock.send(f"ACCEPT_FRIEND {userid}".encode(ENCODER))
+            self.server_sock.send(rsa.encrypt(f"ACCEPT_FRIEND {userid}".encode(ENCODER), public_server))
             self.friendrequest_list.remove(userid)
             self.update_displaylist()
 
@@ -950,7 +1017,7 @@ class friendRequest_window:
                       message=f"Please choose a friend!")
         else:
             userid = self.my_listbox.get(chosen[0])
-            self.server_sock.send(f"REFUSE_FRIEND {userid}".encode(ENCODER))
+            self.server_sock.send(rsa.encrypt(f"REFUSE_FRIEND {userid}".encode(ENCODER), public_server))
             self.friendrequest_list.remove(userid)
             self.update_displaylist()
 
