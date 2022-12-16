@@ -143,7 +143,7 @@ def service(client_socket, userid, database):
                 add_friend(database, userid, message)
 
                 client_socket.send(rsa.encrypt("FRIEND_LIST_UPDATE".encode(ENCODER), client_public_key[client_idx]))
-                send_list_friend(client_socket, database, userid)
+                send_list_friend(client_socket, client_public_key[client_idx], database, userid)
 
                 tmp_idx = client_name_list.index(message)
                 tmp_socket = client_socket_list[tmp_idx]

@@ -312,7 +312,7 @@ class frlist_window:
 
     def listen_server(self):
         while True:
-            try:
+            # try:
                 server_mess = rsa.decrypt(self.server_sock.recv(BYTESIZE), PRI_KEY).decode(ENCODER)
                 if server_mess == "FRIEND_LIST_UPDATE":
                     self.frlist_update()
@@ -351,12 +351,12 @@ class frlist_window:
                     self.add_fr.set_message(server_mess)
                 elif server_mess == "NOTFOUND":
                     self.add_fr.set_message(server_mess)
-            except:
-                if self.flag:
-                    sys.exit()
-                showerror(title="Server connection lost!", message=f"Cannot connect to server!")
-                self.server_sock.close()
-                break
+            # except:
+            #     if self.flag:
+            #         sys.exit()
+            #     showerror(title="Server connection lost!", message=f"Cannot connect to server!")
+            #     self.server_sock.close()
+            #     break
 
     def frlist_update(self):
         # global friend_list, server_sock
