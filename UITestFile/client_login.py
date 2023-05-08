@@ -2,6 +2,8 @@
 import tkinter
 from tkinter import *
 from theme import *
+from tkinter.messagebox import askyesno, showerror
+
 
 class login_window:
     def __init__(self):
@@ -124,6 +126,9 @@ class frlist_window:
         self.chat_button.grid(row=0, column=1, padx=5, pady=5)
         self.update_displaylist(self.onlinelist, self.offlinelist)
 
+        # Pop up confirm message when quit
+        self.flist_page.protocol("WM_DELETE_WINDOW", self.close_confirm)
+
     def updatelist(self, onlinelist, offlinelist):
         self.onlinelist = onlinelist
         self.offlinelist = offlinelist
@@ -152,9 +157,18 @@ class frlist_window:
             self.my_listbox.insert(END, user)
             self.my_listbox.itemconfig(END,{'fg':'gray63'})
 
-    def render(self):
-        #Run the self.flist_page window's mainloop()
-        self.flist_page.mainloop()
+    def close_confirm(self):
+        confirm_reply = askyesno(title="Log out?", message="You will log out this user once you close this window!\nDo you want to log out?")
+        if confirm_reply:
+            # for friend in self.conversation_list:
+            #     self.conversation_list[friend].disconnect()
+            #     self.conversation_list.pop(friend)
+            login_window()
+            self.flist_page.destroy()
+
+    # def render(self):
+    #     #Run the self.flist_page window's mainloop()
+    #     self.flist_page.mainloop()
 
 #friendlist_window = frlist_window(onlinelist, offlinelist)
 #friendlist_window.render()
